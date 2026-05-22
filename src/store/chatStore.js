@@ -14,6 +14,8 @@ const getTimestamp = () =>
     minute: '2-digit',
   })
 
+const makeConversationId = (studentId, driverId) => `${studentId}__${driverId}`
+
 export const useChatStore = create((set, get) => ({
   conversations: getConversations(),
   activeId: getActiveId(),
@@ -32,20 +34,20 @@ export const useChatStore = create((set, get) => ({
     })
 
     onSync((message) => {
-      if (message?.type === 'CHAT_UPDATED') {
+      if (message?.type === 'MESSAGE_SENT') {
         set({ conversations: getConversations(), activeId: getActiveId() })
       }
     })
   },
 
   ensureConversation: (payload) => {
-    const id = payload.id || `${payload.studentId}__${payload.driverId}`
+    const id = makeConversationId(payload.studentId, payload.driverId)
     const existing = get().conversations.find((c) => c.id === id)
 
     if (existing) {
       storage.set(STORAGE_KEYS.activeChat, id)
       set({ activeId: id })
-      emitSync('CHAT_UPDATED')
+      emitSync('MESSAGE_SENT')
       return id
     }
 
@@ -57,6 +59,10 @@ export const useChatStore = create((set, get) => ({
       driverName: payload.driverName,
       terminal: payload.terminal,
       route: payload.route,
+      unreadBy: {
+        [payload.studentId]: 0,
+        [payload.driverId]: 0,
+      },
       messages: [],
     }
 
@@ -64,17 +70,29 @@ export const useChatStore = create((set, get) => ({
     storage.set(STORAGE_KEYS.chat, next)
     storage.set(STORAGE_KEYS.activeChat, id)
     set({ conversations: next, activeId: id })
-    emitSync('CHAT_UPDATED')
+    emitSync('MESSAGE_SENT')
     return id
   },
 
-  setActiveConversation: (id) => {
+  setActiveConversation: (id, userId) => {
+    const next = get().conversations.map((conv) => {
+      if (conv.id !== id || !userId) return conv
+      return {
+        ...conv,
+        unreadBy: {
+          ...(conv.unreadBy || {}),
+          [userId]: 0,
+        },
+      }
+    })
+
+    storage.set(STORAGE_KEYS.chat, next)
     storage.set(STORAGE_KEYS.activeChat, id)
-    set({ activeId: id })
-    emitSync('CHAT_UPDATED')
+    set({ conversations: next, activeId: id })
+    emitSync('MESSAGE_SENT')
   },
 
-  sendMessage: (conversationId, sender, text) => {
+  sendMessage: ({ conversationId, senderId, receiverId, senderRole, text }) => {
     const trimmed = text.trim()
     if (!trimmed) return
 
@@ -82,11 +100,17 @@ export const useChatStore = create((set, get) => ({
       if (conv.id !== conversationId) return conv
       return {
         ...conv,
+        unreadBy: {
+          ...(conv.unreadBy || {}),
+          [receiverId]: (conv.unreadBy?.[receiverId] || 0) + 1,
+        },
         messages: [
           ...conv.messages,
           {
             id: Date.now(),
-            sender,
+            senderId,
+            receiverId,
+            senderRole,
             text: trimmed,
             timestamp: getTimestamp(),
           },
@@ -96,6 +120,6 @@ export const useChatStore = create((set, get) => ({
 
     storage.set(STORAGE_KEYS.chat, next)
     set({ conversations: next })
-    emitSync('CHAT_UPDATED')
+    emitSync('MESSAGE_SENT')
   },
 }))

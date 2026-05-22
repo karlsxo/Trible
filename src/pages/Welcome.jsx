@@ -55,10 +55,6 @@ const Welcome = () => {
             />
           </div>
         </motion.div>
-
-        <div className="mt-12 text-center text-xs uppercase tracking-[0.2em] text-slate-400">
-          Continue as
-        </div>
       </main>
       <Footer />
     </div>

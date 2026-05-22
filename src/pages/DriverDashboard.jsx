@@ -5,6 +5,7 @@ import Button from '../components/Button'
 import DashboardCard from '../components/DashboardCard'
 import DashboardLayout from '../layouts/DashboardLayout'
 import PassengerCard from '../components/PassengerCard'
+import Input from '../components/Input'
 import { useAuth } from '../context/AuthContext'
 import { useBooking } from '../context/BookingContext'
 import { useChat } from '../context/ChatContext'
@@ -12,13 +13,22 @@ import { useChat } from '../context/ChatContext'
 const DriverDashboard = () => {
   const navigate = useNavigate()
   const { session } = useAuth()
-  const { bookings, acceptBooking, setDriverOnline, updateDriverSeats, tricycles } =
-    useBooking()
+  const {
+    bookings,
+    acceptBooking,
+    setDriverOnline,
+    updateDriverSeats,
+    updateDriverDestination,
+    updateDriverTerminal,
+    tricycles,
+  } = useBooking()
   const { ensureConversation } = useChat()
   const [online, setOnline] = useState(true)
   const myDriver = tricycles.find((d) => d.driverUsername === session?.username)
   const waiting = bookings.filter((b) => b.driverUsername === session?.username)
   const seats = myDriver?.seats ?? 0
+  const terminal = myDriver?.terminal ?? 'Campus Terminal'
+  const destination = myDriver?.route ?? 'Campus Route'
   const statusIsOnline = myDriver?.status !== 'Offline'
 
   // Sync online status whenever it changes
@@ -40,8 +50,8 @@ const DriverDashboard = () => {
       studentName: student.student || 'Student',
       driverId: session?.username || 'driver',
       driverName: session?.name || 'Driver',
-      terminal: 'Terminal',
-      route: student.destination || 'Campus Gate',
+      terminal: terminal || student.terminal || 'Campus Terminal',
+      route: student.destination || destination || 'Campus Route',
     })
     navigate('/chat')
   }
@@ -98,6 +108,24 @@ const DriverDashboard = () => {
           <h2 className="text-xl font-semibold text-white">
             Adjust available seats
           </h2>
+          <div className="mt-4">
+            <Input
+              label="Waiting Terminal"
+              value={terminal}
+              onChange={(event) =>
+                updateDriverTerminal(session?.username, event.target.value)
+              }
+            />
+          </div>
+          <div className="mt-4">
+            <Input
+              label="Destination"
+              value={destination}
+              onChange={(event) =>
+                updateDriverDestination(session?.username, event.target.value)
+              }
+            />
+          </div>
           <div className="mt-6 flex items-center gap-3">
             <Button
               size="sm"

@@ -8,7 +8,7 @@ const Sidebar = ({ heading = 'Student' }) => {
   const items = [
     { label: 'Dashboard', icon: LayoutGrid, to: baseRoute },
     { label: 'Chat', icon: MessageSquareText, to: '/chat' },
-    { label: 'Settings', icon: Settings, to: `/auth/${baseRole}` },
+    { label: 'Settings', icon: Settings, to: '/settings' },
   ]
 
   return (

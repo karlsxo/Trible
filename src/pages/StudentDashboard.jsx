@@ -9,14 +9,18 @@ import DashboardLayout from '../layouts/DashboardLayout'
 import { useAuth } from '../context/AuthContext'
 import { useBooking } from '../context/BookingContext'
 import { useChat } from '../context/ChatContext'
+import Button from '../components/Button'
 
 const StudentDashboard = () => {
   const navigate = useNavigate()
   const { session } = useAuth()
-  const { tricycles, totalSeats, bookSeat } = useBooking()
-  const { ensureConversation } = useChat()
+  const { tricycles, totalSeats, bookSeat, bookings, cancelBooking } = useBooking()
+  const { ensureConversation, conversations } = useChat()
   const [toast, setToast] = useState(null)
   const [modal, setModal] = useState(null)
+  const myBookings = bookings.filter((b) => b.studentUsername === session?.username)
+  const myChats = conversations.filter((c) => c.studentId === session?.username)
+  const activeTerminals = new Set(tricycles.map((t) => t.terminal)).size
 
   const handleBook = (data) => {
     const result = bookSeat({
@@ -49,6 +53,15 @@ const StudentDashboard = () => {
     navigate('/chat')
   }
 
+  const handleCancelBooking = (bookingId) => {
+    const result = cancelBooking(bookingId, session?.username)
+    if (!result?.ok) {
+      setToast({ title: 'Unable to cancel', message: result?.message || 'Try again.' })
+      return
+    }
+    setToast({ title: 'Booking cancelled', message: 'Seat has been released.' })
+  }
+
   return (
     <DashboardLayout
       heading="Student"
@@ -64,19 +77,19 @@ const StudentDashboard = () => {
       <div className="grid gap-4 md:grid-cols-3">
         <DashboardCard
           title="Bookings"
-          value="04"
+          value={String(myBookings.length).padStart(2, '0')}
           caption="Your recent reservations"
           icon={TicketCheck}
         />
         <DashboardCard
           title="Live chats"
-          value="02"
+          value={String(myChats.length).padStart(2, '0')}
           caption="Drivers ready to respond"
           icon={MessageSquareText}
         />
         <DashboardCard
           title="Terminals"
-          value="06"
+          value={String(activeTerminals).padStart(2, '0')}
           caption="Active pickup points"
           icon={Users}
         />
@@ -108,6 +121,40 @@ const StudentDashboard = () => {
             />
           ))
         )}
+      </div>
+
+      <div className="mt-8">
+        <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/70">
+          Active Bookings
+        </p>
+        <div className="mt-4 space-y-3">
+          {myBookings.length === 0 ? (
+            <div className="glass rounded-3xl p-5 text-sm text-slate-300">
+              No active bookings yet.
+            </div>
+          ) : (
+            myBookings.map((booking) => (
+              <div
+                key={booking.id}
+                className="glass flex flex-col justify-between gap-4 rounded-3xl p-5 md:flex-row md:items-center"
+              >
+                <div className="text-sm text-slate-300">
+                  <p className="text-base font-semibold text-white">{booking.driver}</p>
+                  <p>Terminal: {booking.terminal}</p>
+                  <p>Destination: {booking.destination}</p>
+                  <p>Status: {booking.status}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleCancelBooking(booking.id)}
+                >
+                  Cancel Booking
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       <ToastNotification

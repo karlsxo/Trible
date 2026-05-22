@@ -13,9 +13,7 @@ const Auth = () => {
   const [toast, setToast] = useState(null)
   const [form, setForm] = useState({
     fullName: '',
-    driverId: '',
-    route: '',
-    availableSeats: 3,
+    driverNumber: '',
     username: '',
     identifier: '',
     password: '',
@@ -59,9 +57,7 @@ const Auth = () => {
 
     const result = signUp(normalizedRole, {
       fullName: form.fullName,
-      driverId: form.driverId,
-      route: form.route,
-      availableSeats: form.availableSeats,
+      driverNumber: form.driverNumber,
       username: form.username,
       password: form.password,
     })

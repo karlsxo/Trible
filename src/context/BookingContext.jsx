@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo } from 'react'
 import { useBookingStore } from '../store/bookingStore'
+import { useDriverStore } from '../store/driverStore'
 
 const BookingContext = createContext(null)
 
@@ -10,12 +11,24 @@ export const BookingProvider = ({ children }) => {
   const getTotalSeats = useBookingStore((state) => state.getTotalSeats)
   const bookSeat = useBookingStore((state) => state.bookSeat)
   const acceptBooking = useBookingStore((state) => state.acceptBooking)
+  const cancelBooking = useBookingStore((state) => state.cancelBooking)
   const setDriverOnline = useBookingStore((state) => state.setDriverOnline)
   const updateDriverSeats = useBookingStore((state) => state.updateDriverSeats)
+  const updateDriverDestination = useBookingStore(
+    (state) => state.updateDriverDestination,
+  )
+  const updateDriverTerminal = useBookingStore(
+    (state) => state.updateDriverTerminal,
+  )
+  const drivers = useDriverStore((state) => state.drivers)
+  const initDriverSync = useDriverStore((state) => state.initSync)
 
   useEffect(() => {
     initSync()
   }, [initSync])
+  useEffect(() => {
+    initDriverSync()
+  }, [initDriverSync])
 
   const tricycles = getTricycles()
   const totalSeats = getTotalSeats()
@@ -27,8 +40,11 @@ export const BookingProvider = ({ children }) => {
       totalSeats,
       bookSeat,
       acceptBooking,
+      cancelBooking,
       setDriverOnline,
       updateDriverSeats,
+      updateDriverDestination,
+      updateDriverTerminal,
       getDriverBookings: (driverUsername) =>
         bookings.filter((b) => b.driverUsername === driverUsername),
       refreshDrivers: () => {},
@@ -39,8 +55,12 @@ export const BookingProvider = ({ children }) => {
       totalSeats,
       bookSeat,
       acceptBooking,
+      cancelBooking,
       setDriverOnline,
       updateDriverSeats,
+      updateDriverDestination,
+      updateDriverTerminal,
+      drivers,
     ],
   )
 

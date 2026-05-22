@@ -20,8 +20,25 @@ const ConversationList = ({ items, activeId, onSelect }) => {
             : 'border-white/10 bg-white/5 text-slate-300 hover:border-white/30'
         }`}
       >
-        <p className="text-sm font-semibold text-white">{item.title}</p>
-        <p className="mt-1 text-xs text-slate-400">{item.subtitle}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-white">{item.title}</p>
+            <p className="mt-1 text-xs text-slate-400">{item.subtitle}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-slate-400">{item.timestamp || ''}</p>
+            {item.unread > 0 ? (
+              <span className="mt-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-400/20 px-1.5 text-[10px] font-semibold text-emerald-100">
+                {item.unread}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        {item.status ? (
+          <p className="mt-2 text-[10px] uppercase tracking-wide text-emerald-300/80">
+            {item.status}
+          </p>
+        ) : null}
       </button>
     )
   })

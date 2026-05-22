@@ -9,12 +9,17 @@ import MessageBubble from '../components/MessageBubble'
 import ChatInput from '../components/ChatInput'
 import EmptyChatState from '../components/EmptyChatState'
 import { useNavigate } from 'react-router-dom'
+import { useBooking } from '../context/BookingContext'
 
 const Chat = () => {
   const { session } = useAuth()
   const navigate = useNavigate()
   const { conversations, activeId, setActiveConversation, sendMessage } = useChat()
+  const { tricycles } = useBooking()
   const messagesEndRef = useRef(null)
+  const driverStatusMap = Object.fromEntries(
+    tricycles.map((driver) => [driver.driverUsername, driver.status]),
+  )
   const scopedConversations = conversations.filter((c) =>
     session?.role === 'driver'
       ? c.driverId === session.username
@@ -33,7 +38,16 @@ const Chat = () => {
 
   const handleSend = (text) => {
     if (!active) return
-    sendMessage(active.id, session.role, text)
+    const receiverId =
+      session.role === 'driver' ? active.studentId : active.driverId
+
+    sendMessage({
+      conversationId: active.id,
+      senderId: session.username,
+      receiverId,
+      senderRole: session.role,
+      text,
+    })
   }
 
   return (
@@ -49,9 +63,15 @@ const Chat = () => {
                 id: c.id,
                 title: session?.role === 'driver' ? c.studentName : c.driverName,
                 subtitle: c.messages?.[c.messages.length - 1]?.text || c.route,
+                timestamp: c.messages?.[c.messages.length - 1]?.timestamp || '',
+                unread: c.unreadBy?.[session.username] || 0,
+                status:
+                  session?.role === 'student'
+                    ? driverStatusMap[c.driverId] || 'Offline'
+                    : 'Student',
               }))}
               activeId={activeId}
-              onSelect={(id) => setActiveConversation(id)}
+              onSelect={(id) => setActiveConversation(id, session.username)}
             />
           </ChatSidebar>
         }
@@ -70,10 +90,7 @@ const Chat = () => {
                 <MessageBubble
                   key={m.id}
                   message={{ text: m.text, timestamp: m.timestamp }}
-                  isMe={
-                    (session.role === 'student' && m.sender === 'student') ||
-                    (session.role === 'driver' && m.sender === 'driver')
-                  }
+                  isMe={m.senderId === session.username}
                 />
               ))}
               <div ref={messagesEndRef} />
