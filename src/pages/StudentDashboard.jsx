@@ -94,14 +94,20 @@ const StudentDashboard = () => {
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {tricycles.map((item) => (
-          <DriverCard
-            key={item.id}
-            data={item}
-            onBook={handleBook}
-            onChat={handleChat}
-          />
-        ))}
+        {tricycles.length === 0 ? (
+          <div className="glass rounded-3xl p-6 text-slate-300">
+            No Available Drivers
+          </div>
+        ) : (
+          tricycles.map((item) => (
+            <DriverCard
+              key={item.id}
+              data={item}
+              onBook={handleBook}
+              onChat={handleChat}
+            />
+          ))
+        )}
       </div>
 
       <ToastNotification

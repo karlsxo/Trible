@@ -16,13 +16,30 @@ const AuthForm = ({ role, mode, form, onChange, onSubmit, onToggleMode }) => {
         />
       ) : null}
       {!isLogin && role === 'driver' ? (
-        <Input
-          label="Driver ID / Tricycle Number"
-          name="driverId"
-          placeholder="TRI-042"
-          value={form.driverId}
-          onChange={onChange}
-        />
+        <>
+          <Input
+            label="Driver ID / Tricycle Number"
+            name="driverId"
+            placeholder="TRI-042"
+            value={form.driverId}
+            onChange={onChange}
+          />
+          <Input
+            label="Destination Route"
+            name="route"
+            placeholder="Campus Gate - Library Wing"
+            value={form.route}
+            onChange={onChange}
+          />
+          <Input
+            label="Available Seats"
+            name="availableSeats"
+            type="number"
+            min="0"
+            value={form.availableSeats}
+            onChange={onChange}
+          />
+        </>
       ) : null}
       {isLogin ? (
         <Input

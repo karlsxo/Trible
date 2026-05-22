@@ -5,21 +5,21 @@ import Button from '../components/Button'
 import DashboardCard from '../components/DashboardCard'
 import DashboardLayout from '../layouts/DashboardLayout'
 import PassengerCard from '../components/PassengerCard'
-import { waitingStudentsSeed } from '../data/waitingStudents'
 import { useAuth } from '../context/AuthContext'
 import { useBooking } from '../context/BookingContext'
 import { useChat } from '../context/ChatContext'
-import { setDriverOnline } from '../utils/localStorage'
 
 const DriverDashboard = () => {
   const navigate = useNavigate()
   const { session } = useAuth()
-  const { bookings, acceptBooking } = useBooking()
+  const { bookings, acceptBooking, setDriverOnline, updateDriverSeats, tricycles } =
+    useBooking()
   const { ensureConversation } = useChat()
   const [online, setOnline] = useState(true)
-  const [seats, setSeats] = useState(3)
-
-  const waiting = bookings.length ? bookings : waitingStudentsSeed
+  const myDriver = tricycles.find((d) => d.driverUsername === session?.username)
+  const waiting = bookings.filter((b) => b.driverUsername === session?.username)
+  const seats = myDriver?.seats ?? 0
+  const statusIsOnline = myDriver?.status !== 'Offline'
 
   // Sync online status whenever it changes
   const toggleOnline = () => {
@@ -31,10 +31,8 @@ const DriverDashboard = () => {
   }
 
   useEffect(() => {
-    if (session?.username) {
-      setDriverOnline(session.username, online)
-    }
-  }, [])
+    setOnline(statusIsOnline)
+  }, [statusIsOnline])
 
   const handleChat = (student) => {
     ensureConversation({
@@ -104,12 +102,12 @@ const DriverDashboard = () => {
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setSeats((value) => Math.max(0, value - 1))}
+              onClick={() => updateDriverSeats(session?.username, seats - 1)}
             >
               -
             </Button>
             <span className="text-lg font-semibold text-white">{seats}</span>
-            <Button size="sm" onClick={() => setSeats((value) => value + 1)}>
+            <Button size="sm" onClick={() => updateDriverSeats(session?.username, seats + 1)}>
               +
             </Button>
           </div>
@@ -120,7 +118,7 @@ const DriverDashboard = () => {
           </p>
           <div className="mt-4 space-y-3 text-sm text-slate-300">
             {waiting.length === 0 ? (
-              <p>No students waiting yet. Stay online to receive requests.</p>
+              <p>No Current Passengers</p>
             ) : (
               waiting.slice(0, 4).map((booking) => (
                 <PassengerCard

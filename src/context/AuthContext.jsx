@@ -1,83 +1,22 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import {
-  getSession,
-  saveSession,
-  clearSession,
-  getUsers,
-  isUsernameTaken,
-  saveUser,
-} from '../utils/localStorage'
+import { createContext, useContext, useEffect, useMemo } from 'react'
+import { useAuthStore } from '../store/authStore'
 
 const AuthContext = createContext(null)
 
 export const AuthProvider = ({ children }) => {
-  const [session, setSession] = useState(getSession)
+  const session = useAuthStore((state) => state.session)
+  const login = useAuthStore((state) => state.login)
+  const signUp = useAuthStore((state) => state.signUp)
+  const logout = useAuthStore((state) => state.logout)
+  const initSync = useAuthStore((state) => state.initSync)
 
   useEffect(() => {
-    if (session) {
-      saveSession(session)
-    } else {
-      clearSession()
-    }
-  }, [session])
-
-  const login = (identifier, password, role) => {
-    const users = getUsers()
-    const user = users.find(
-      (u) =>
-        u.role === role &&
-        u.password === password &&
-        u.username === identifier,
-    )
-
-    if (!user) {
-      return { ok: false, message: 'Invalid credentials.' }
-    }
-
-    const nextSession = {
-      id: user.id,
-      role: user.role,
-      name: user.fullName,
-      username: user.username,
-    }
-
-    setSession(nextSession)
-    return { ok: true, role: user.role }
-  }
-
-  const signUp = (role, payload) => {
-    const taken = isUsernameTaken(payload.username)
-    if (taken) {
-      return { ok: false, message: 'Username is already taken.' }
-    }
-
-    const newUser = {
-      id: Date.now(),
-      role,
-      fullName: payload.fullName,
-      username: payload.username,
-      password: payload.password,
-      driverId: payload.driverId || '',
-    }
-
-    saveUser(newUser)
-
-    const nextSession = {
-      id: newUser.id,
-      role,
-      name: payload.fullName,
-      username: payload.username,
-    }
-
-    setSession(nextSession)
-    return { ok: true, role }
-  }
-
-  const logout = () => setSession(null)
+    initSync()
+  }, [initSync])
 
   const value = useMemo(
     () => ({ session, login, signUp, logout }),
-    [session],
+    [session, login, signUp, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

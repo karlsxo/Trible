@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useChat } from '../context/ChatContext'
 import ChatLayout from '../components/ChatLayout'
@@ -14,12 +14,22 @@ const Chat = () => {
   const { session } = useAuth()
   const navigate = useNavigate()
   const { conversations, activeId, setActiveConversation, sendMessage } = useChat()
+  const messagesEndRef = useRef(null)
+  const scopedConversations = conversations.filter((c) =>
+    session?.role === 'driver'
+      ? c.driverId === session.username
+      : c.studentId === session?.username,
+  )
 
   useEffect(() => {
     if (!session) navigate('/welcome')
   }, [session, navigate])
 
-  const active = conversations.find((c) => c.id === activeId) || null
+  const active = scopedConversations.find((c) => c.id === activeId) || null
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [active?.messages?.length, activeId])
 
   const handleSend = (text) => {
     if (!active) return
@@ -35,7 +45,7 @@ const Chat = () => {
             subtitle={session?.name}
           >
             <ConversationList
-              items={conversations.map((c) => ({
+              items={scopedConversations.map((c) => ({
                 id: c.id,
                 title: session?.role === 'driver' ? c.studentName : c.driverName,
                 subtitle: c.messages?.[c.messages.length - 1]?.text || c.route,
@@ -66,6 +76,7 @@ const Chat = () => {
                   }
                 />
               ))}
+              <div ref={messagesEndRef} />
             </div>
             <ChatInput onSend={handleSend} />
           </div>

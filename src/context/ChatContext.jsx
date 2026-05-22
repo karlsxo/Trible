@@ -1,87 +1,19 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { storage } from '../services/storage'
-import { STORAGE_KEYS } from '../utils/constants'
+import { createContext, useContext, useEffect, useMemo } from 'react'
+import { useChatStore } from '../store/chatStore'
 
 const ChatContext = createContext(null)
 
-const getTimestamp = () =>
-  new Date().toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-
 export const ChatProvider = ({ children }) => {
-  const [conversations, setConversations] = useState(() =>
-    storage.get(STORAGE_KEYS.chat, []),
-  )
-  const [activeId, setActiveId] = useState(() =>
-    storage.get(STORAGE_KEYS.activeChat, null),
-  )
+  const conversations = useChatStore((state) => state.conversations)
+  const activeId = useChatStore((state) => state.activeId)
+  const ensureConversation = useChatStore((state) => state.ensureConversation)
+  const setActiveConversation = useChatStore((state) => state.setActiveConversation)
+  const sendMessage = useChatStore((state) => state.sendMessage)
+  const initSync = useChatStore((state) => state.initSync)
 
   useEffect(() => {
-    storage.set(STORAGE_KEYS.chat, conversations)
-  }, [conversations])
-
-  useEffect(() => {
-    storage.set(STORAGE_KEYS.activeChat, activeId)
-  }, [activeId])
-
-  useEffect(() => {
-    const handler = (event) => {
-      if (event.key === STORAGE_KEYS.chat && event.newValue) {
-        setConversations(JSON.parse(event.newValue))
-      }
-      if (event.key === STORAGE_KEYS.activeChat) {
-        setActiveId(event.newValue ? JSON.parse(event.newValue) : null)
-      }
-    }
-    window.addEventListener('storage', handler)
-    return () => window.removeEventListener('storage', handler)
-  }, [])
-
-  const ensureConversation = (payload) => {
-    const id = payload.id || `${payload.studentId}__${payload.driverId}`
-    const existing = conversations.find((item) => item.id === id)
-    if (existing) {
-      setActiveId(id)
-      return id
-    }
-
-    const next = {
-      id,
-      studentId: payload.studentId,
-      studentName: payload.studentName,
-      driverId: payload.driverId,
-      driverName: payload.driverName,
-      terminal: payload.terminal,
-      route: payload.route,
-      messages: payload.messages || [],
-    }
-
-    setConversations((prev) => [next, ...prev])
-    setActiveId(id)
-    return id
-  }
-
-  const setActiveConversation = (id) => setActiveId(id)
-
-  const sendMessage = (conversationId, sender, text) => {
-    setConversations((prev) =>
-      prev.map((conv) => {
-        if (conv.id !== conversationId) return conv
-        const nextMessage = {
-          id: Date.now(),
-          sender,
-          text,
-          timestamp: getTimestamp(),
-        }
-        return {
-          ...conv,
-          messages: [...conv.messages, nextMessage],
-        }
-      }),
-    )
-  }
+    initSync()
+  }, [initSync])
 
   const value = useMemo(
     () => ({
@@ -91,10 +23,20 @@ export const ChatProvider = ({ children }) => {
       setActiveConversation,
       sendMessage,
     }),
-    [conversations, activeId],
+    [
+      conversations,
+      activeId,
+      ensureConversation,
+      setActiveConversation,
+      sendMessage,
+    ],
   )
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>
 }
 
-export const useChat = () => useContext(ChatContext)
+export const useChat = () => {
+  const ctx = useContext(ChatContext)
+  if (!ctx) throw new Error('useChat must be used within ChatProvider')
+  return ctx
+}

@@ -14,6 +14,8 @@ const Auth = () => {
   const [form, setForm] = useState({
     fullName: '',
     driverId: '',
+    route: '',
+    availableSeats: 3,
     username: '',
     identifier: '',
     password: '',
@@ -58,6 +60,8 @@ const Auth = () => {
     const result = signUp(normalizedRole, {
       fullName: form.fullName,
       driverId: form.driverId,
+      route: form.route,
+      availableSeats: form.availableSeats,
       username: form.username,
       password: form.password,
     })

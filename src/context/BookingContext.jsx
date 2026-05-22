@@ -1,72 +1,24 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { getBookings, saveBookings, getOnlineDrivers } from '../utils/localStorage'
+import { createContext, useContext, useEffect, useMemo } from 'react'
+import { useBookingStore } from '../store/bookingStore'
 
 const BookingContext = createContext(null)
 
 export const BookingProvider = ({ children }) => {
-  const [tricycles, setTricycles] = useState(() => getOnlineDrivers())
-  const [bookings, setBookings] = useState(() => getBookings())
+  const bookings = useBookingStore((state) => state.bookings)
+  const initSync = useBookingStore((state) => state.initSync)
+  const getTricycles = useBookingStore((state) => state.getTricycles)
+  const getTotalSeats = useBookingStore((state) => state.getTotalSeats)
+  const bookSeat = useBookingStore((state) => state.bookSeat)
+  const acceptBooking = useBookingStore((state) => state.acceptBooking)
+  const setDriverOnline = useBookingStore((state) => state.setDriverOnline)
+  const updateDriverSeats = useBookingStore((state) => state.updateDriverSeats)
 
-  // Refresh tricycles from registered drivers whenever bookmarks/state changes
   useEffect(() => {
-    setTricycles(getOnlineDrivers())
-  }, [])
+    initSync()
+  }, [initSync])
 
-  useEffect(() => {
-    saveBookings(bookings)
-  }, [bookings])
-
-  const totalSeats = useMemo(
-    () => tricycles.reduce((sum, t) => sum + t.seats, 0),
-    [tricycles],
-  )
-
-  const refreshDrivers = () => {
-    setTricycles(getOnlineDrivers())
-  }
-
-  const bookSeat = (data) => {
-    if (data.seats <= 0) return { ok: false, message: 'Fully booked.' }
-
-    setTricycles((prev) =>
-      prev.map((item) => {
-        if (item.id !== data.id) return item
-        const next = item.seats - 1
-        return {
-          ...item,
-          seats: next,
-          status: next <= 0 ? 'Full' : next <= 1 ? 'Almost Full' : 'Available',
-        }
-      }),
-    )
-
-    setBookings((prev) => [
-      {
-        id: Date.now(),
-        driver: data.driver,
-        terminal: data.terminal,
-        route: data.route,
-        student: data.studentName || 'Student Rider',
-        studentUsername: data.studentUsername || '',
-        destination: data.route,
-        seatCount: 1,
-        status: 'Pending',
-        time: new Date().toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-        }),
-      },
-      ...prev,
-    ])
-
-    return { ok: true }
-  }
-
-  const acceptBooking = (id) => {
-    setBookings((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, status: 'Accepted' } : b)),
-    )
-  }
+  const tricycles = getTricycles()
+  const totalSeats = getTotalSeats()
 
   const value = useMemo(
     () => ({
@@ -75,10 +27,21 @@ export const BookingProvider = ({ children }) => {
       totalSeats,
       bookSeat,
       acceptBooking,
-      setBookings,
-      refreshDrivers,
+      setDriverOnline,
+      updateDriverSeats,
+      getDriverBookings: (driverUsername) =>
+        bookings.filter((b) => b.driverUsername === driverUsername),
+      refreshDrivers: () => {},
     }),
-    [tricycles, bookings, totalSeats],
+    [
+      tricycles,
+      bookings,
+      totalSeats,
+      bookSeat,
+      acceptBooking,
+      setDriverOnline,
+      updateDriverSeats,
+    ],
   )
 
   return (
