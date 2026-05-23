@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { storage } from '../services/storage'
 import { STORAGE_KEYS } from '../utils/constants'
+import { safeFirebaseKey } from '../utils/firebaseKey'
 import { db } from '../lib/firebase'
 import { onValue, ref, set as dbSet } from 'firebase/database'
 import { useDriverStore } from './driverStore'
@@ -24,7 +25,7 @@ const usersArrayToObject = (users) =>
   (Array.isArray(users) ? users : []).reduce((acc, user) => {
     if (!user?.username) return acc
     const normalizedUsername = normalizeUsername(user.username)
-    acc[normalizedUsername] = {
+    acc[safeFirebaseKey(normalizedUsername)] = {
       ...user,
       username: normalizedUsername,
     }

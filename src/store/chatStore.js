@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { storage } from '../services/storage'
 import { STORAGE_KEYS } from '../utils/constants'
+import { safeFirebaseKey } from '../utils/firebaseKey'
 import { db } from '../lib/firebase'
 import { onValue, push, ref, set as dbSet, update as dbUpdate } from 'firebase/database'
 
@@ -18,6 +19,7 @@ const getTimestamp = () =>
   })
 
 const makeConversationId = (studentId, driverId) => `${studentId}__${driverId}`
+const makeConversationKey = (conversationId) => safeFirebaseKey(conversationId)
 
 const conversationsObjectToArray = (conversations) =>
   Object.entries(conversations || {})
@@ -36,7 +38,7 @@ const conversationsObjectToArray = (conversations) =>
 const conversationsArrayToObject = (conversations) =>
   (Array.isArray(conversations) ? conversations : []).reduce((acc, conversation) => {
     if (!conversation?.id) return acc
-    acc[conversation.id] = {
+    acc[makeConversationKey(conversation.id)] = {
       ...conversation,
       messages: (conversation.messages || []).reduce((messageAcc, message) => {
         if (!message?.id) return messageAcc
@@ -102,7 +104,7 @@ export const useChatStore = create((set, get) => ({
     set({ conversations: next, activeId: id })
 
     if (db) {
-      dbSet(ref(db, `conversations/${id}`), {
+      dbSet(ref(db, `conversations/${makeConversationKey(id)}`), {
         ...nextConversation,
         messages: {},
       })
@@ -134,7 +136,7 @@ export const useChatStore = create((set, get) => ({
     if (db) {
       const activeConversation = next.find((conversation) => conversation.id === id)
       if (activeConversation) {
-        dbUpdate(ref(db, `conversations/${id}`), {
+        dbUpdate(ref(db, `conversations/${makeConversationKey(id)}`), {
           unreadBy: activeConversation.unreadBy || {},
           updatedAt: Date.now(),
         })
@@ -176,9 +178,11 @@ export const useChatStore = create((set, get) => ({
       const conversation = next.find((conv) => conv.id === conversationId)
       const message = conversation?.messages?.[conversation.messages.length - 1]
       if (conversation && message) {
-        const messageRef = push(ref(db, `conversations/${conversationId}/messages`))
+        const messageRef = push(
+          ref(db, `conversations/${makeConversationKey(conversationId)}/messages`),
+        )
         dbSet(messageRef, message)
-        dbUpdate(ref(db, `conversations/${conversationId}`), {
+        dbUpdate(ref(db, `conversations/${makeConversationKey(conversationId)}`), {
           unreadBy: conversation.unreadBy || {},
           updatedAt: conversation.updatedAt || Date.now(),
         })

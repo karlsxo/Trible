@@ -8,7 +8,6 @@ const BookingContext = createContext(null)
 export const BookingProvider = ({ children }) => {
   const bookings = useBookingStore((state) => state.bookings)
   const initSync = useBookingStore((state) => state.initSync)
-  const getTricycles = useBookingStore((state) => state.getTricycles)
   const getTotalSeats = useBookingStore((state) => state.getTotalSeats)
   const bookSeat = useBookingStore((state) => state.bookSeat)
   const acceptBooking = useBookingStore((state) => state.acceptBooking)
@@ -21,6 +20,8 @@ export const BookingProvider = ({ children }) => {
   const updateDriverTerminal = useBookingStore(
     (state) => state.updateDriverTerminal,
   )
+  const drivers = useDriverStore((state) => state.drivers)
+  const subscribeToDrivers = useDriverStore((state) => state.subscribeToDrivers)
   const initDriverSync = useDriverStore((state) => state.initSync)
 
   useEffect(() => {
@@ -28,9 +29,26 @@ export const BookingProvider = ({ children }) => {
   }, [initSync])
   useEffect(() => {
     initDriverSync()
-  }, [initDriverSync])
+    return subscribeToDrivers()
+  }, [initDriverSync, subscribeToDrivers])
 
-  const tricycles = getTricycles()
+  const tricycles = useMemo(
+    () =>
+      drivers.map((driver) => {
+        const seats = Number(driver.availableSeats) || 0
+        return {
+          id: driver.id,
+          driver: driver.fullName,
+          driverUsername: driver.username,
+          driverId: driver.driverNumber || '',
+          seats,
+          terminal: driver.terminal ?? '',
+          route: driver.destination ?? '',
+          status: driver.online ? (seats > 0 ? 'Available' : 'Full') : 'Offline',
+        }
+      }),
+    [drivers],
+  )
   const totalSeats = getTotalSeats()
 
   const value = useMemo(

@@ -153,19 +153,15 @@ export const useBookingStore = create((set, get) => ({
   },
 
   setDriverOnline: (username, online) => {
-    useDriverStore.getState().updateDriverProfile(username, { online })
+    useDriverStore.getState().toggleDriverStatus(username, online)
   },
 
   updateDriverSeats: (username, seats) => {
-    useDriverStore.getState().updateDriverProfile(username, {
-      availableSeats: Math.max(0, Number(seats) || 0),
-    })
+    useDriverStore.getState().updateDriverSeats(username, seats)
   },
 
   updateDriverDestination: (username, destination) => {
-    useDriverStore.getState().updateDriverProfile(username, {
-      destination,
-    })
+    useDriverStore.getState().updateDriverRoute(username, destination)
   },
 
   updateDriverTerminal: (username, terminal) => {

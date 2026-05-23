@@ -169,7 +169,9 @@ const DriverDashboard = () => {
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => updateDriverSeats(session?.username, seats - 1)}
+              onClick={() =>
+                updateDriverSeats(session?.username, Math.max(0, seats - 1))
+              }
               className="h-11 w-11 px-0"
             >
               -
