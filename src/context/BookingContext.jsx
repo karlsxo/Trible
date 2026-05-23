@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo } from 'react'
 import { useBookingStore } from '../store/bookingStore'
 import { useDriverStore } from '../store/driverStore'
@@ -20,7 +21,6 @@ export const BookingProvider = ({ children }) => {
   const updateDriverTerminal = useBookingStore(
     (state) => state.updateDriverTerminal,
   )
-  const drivers = useDriverStore((state) => state.drivers)
   const initDriverSync = useDriverStore((state) => state.initSync)
 
   useEffect(() => {
@@ -60,7 +60,6 @@ export const BookingProvider = ({ children }) => {
       updateDriverSeats,
       updateDriverDestination,
       updateDriverTerminal,
-      drivers,
     ],
   )
 

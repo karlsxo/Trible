@@ -1,0 +1,30 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "users": {
+      ".read": true,
+      ".write": true
+    },
+    "drivers": {
+      ".read": true,
+      ".write": true
+    },
+    "bookings": {
+      ".read": true,
+      ".write": true
+    },
+    "conversations": {
+      ".read": true,
+      ".write": true
+    },
+    "students": {
+      ".read": true,
+      ".write": true
+    },
+    "onlineStatus": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

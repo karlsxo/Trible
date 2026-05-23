@@ -1,6 +1,5 @@
 import { Activity, CircleDot, MessageSquareText, TicketCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
 import Button from '../components/Button'
 import DashboardCard from '../components/DashboardCard'
 import DashboardLayout from '../layouts/DashboardLayout'
@@ -63,20 +62,6 @@ const DriverDashboard = () => {
   const saveRoute = (value) => {
     updateDriverDestination(session?.username, value)
   }
-
-  // local route state to keep input responsive while syncing to store
-  const [routeValue, setRouteValue] = useState(destination)
-
-  // local terminal state to keep input responsive while syncing to store
-  const [terminalValue, setTerminalValue] = useState(terminal)
-
-  useEffect(() => {
-    setRouteValue(destination)
-  }, [destination])
-
-  useEffect(() => {
-    setTerminalValue(terminal)
-  }, [terminal])
 
   return (
     <DashboardLayout
@@ -156,10 +141,9 @@ const DriverDashboard = () => {
             <Input
               label="Waiting Terminal"
               placeholder="Enter waiting terminal..."
-              value={terminalValue}
+              value={terminal}
               onChange={(event) => {
                 const v = event.target.value
-                setTerminalValue(v)
                 if (session?.username) updateDriverTerminal(session?.username, v)
               }}
             />
@@ -169,10 +153,9 @@ const DriverDashboard = () => {
               key={`${session?.username || 'driver'}-route`}
               label="Route"
               placeholder="Enter destination route..."
-              value={routeValue}
+              value={destination}
               onChange={(event) => {
                 const v = event.target.value
-                setRouteValue(v)
                 if (session?.username) saveRoute(v)
               }}
               onKeyDown={(event) => {

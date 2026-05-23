@@ -1,12 +1,15 @@
 import { create } from 'zustand'
 import { storage } from '../services/storage'
 import { STORAGE_KEYS } from '../utils/constants'
-import { emitSync, onSync } from '../utils/broadcast'
+import { db } from '../lib/firebase'
+import { onValue, push, ref, set as dbSet, update as dbUpdate } from 'firebase/database'
 
 const getConversations = () => storage.get(STORAGE_KEYS.chat, [])
 const getActiveId = () => storage.get(STORAGE_KEYS.activeChat, null)
+const conversationsRef = () => ref(db, 'conversations')
 
 let chatSyncReady = false
+let chatSeeded = false
 
 const getTimestamp = () =>
   new Date().toLocaleTimeString('en-US', {
@@ -16,27 +19,55 @@ const getTimestamp = () =>
 
 const makeConversationId = (studentId, driverId) => `${studentId}__${driverId}`
 
+const conversationsObjectToArray = (conversations) =>
+  Object.entries(conversations || {})
+    .map(([id, conversation]) => ({
+      ...conversation,
+      id: conversation.id || id,
+      messages: Object.entries(conversation.messages || {})
+        .map(([messageId, message]) => ({
+          ...message,
+          id: message.id || messageId,
+        }))
+        .sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0)),
+    }))
+    .sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))
+
+const conversationsArrayToObject = (conversations) =>
+  (Array.isArray(conversations) ? conversations : []).reduce((acc, conversation) => {
+    if (!conversation?.id) return acc
+    acc[conversation.id] = {
+      ...conversation,
+      messages: (conversation.messages || []).reduce((messageAcc, message) => {
+        if (!message?.id) return messageAcc
+        messageAcc[String(message.id)] = message
+        return messageAcc
+      }, {}),
+    }
+    return acc
+  }, {})
+
 export const useChatStore = create((set, get) => ({
   conversations: getConversations(),
   activeId: getActiveId(),
 
   initSync: () => {
-    if (chatSyncReady || typeof window === 'undefined') return
+    if (chatSyncReady || typeof window === 'undefined' || !db) return
     chatSyncReady = true
 
-    window.addEventListener('storage', (event) => {
-      if (event.key === STORAGE_KEYS.chat) {
-        set({ conversations: getConversations() })
-      }
-      if (event.key === STORAGE_KEYS.activeChat) {
-        set({ activeId: getActiveId() })
-      }
-    })
+    onValue(conversationsRef(), (snapshot) => {
+      const remoteConversations = snapshot.val()
 
-    onSync((message) => {
-      if (message?.type === 'MESSAGE_SENT') {
-        set({ conversations: getConversations(), activeId: getActiveId() })
+      if (!remoteConversations && !chatSeeded) {
+        const legacyConversations = getConversations()
+        if (Array.isArray(legacyConversations) && legacyConversations.length > 0) {
+          chatSeeded = true
+          dbSet(conversationsRef(), conversationsArrayToObject(legacyConversations))
+          return
+        }
       }
+
+      set({ conversations: conversationsObjectToArray(remoteConversations), activeId: getActiveId() })
     })
   },
 
@@ -47,7 +78,6 @@ export const useChatStore = create((set, get) => ({
     if (existing) {
       storage.set(STORAGE_KEYS.activeChat, id)
       set({ activeId: id })
-      emitSync('MESSAGE_SENT')
       return id
     }
 
@@ -59,6 +89,7 @@ export const useChatStore = create((set, get) => ({
       driverName: payload.driverName,
       terminal: payload.terminal,
       route: payload.route,
+      updatedAt: Date.now(),
       unreadBy: {
         [payload.studentId]: 0,
         [payload.driverId]: 0,
@@ -67,10 +98,18 @@ export const useChatStore = create((set, get) => ({
     }
 
     const next = [nextConversation, ...get().conversations]
-    storage.set(STORAGE_KEYS.chat, next)
     storage.set(STORAGE_KEYS.activeChat, id)
     set({ conversations: next, activeId: id })
-    emitSync('MESSAGE_SENT')
+
+    if (db) {
+      dbSet(ref(db, `conversations/${id}`), {
+        ...nextConversation,
+        messages: {},
+      })
+    } else {
+      storage.set(STORAGE_KEYS.chat, next)
+    }
+
     return id
   },
 
@@ -86,10 +125,21 @@ export const useChatStore = create((set, get) => ({
       }
     })
 
-    storage.set(STORAGE_KEYS.chat, next)
+    if (!db) {
+      storage.set(STORAGE_KEYS.chat, next)
+    }
     storage.set(STORAGE_KEYS.activeChat, id)
     set({ conversations: next, activeId: id })
-    emitSync('MESSAGE_SENT')
+
+    if (db) {
+      const activeConversation = next.find((conversation) => conversation.id === id)
+      if (activeConversation) {
+        dbUpdate(ref(db, `conversations/${id}`), {
+          unreadBy: activeConversation.unreadBy || {},
+          updatedAt: Date.now(),
+        })
+      }
+    }
   },
 
   sendMessage: ({ conversationId, senderId, receiverId, senderRole, text }) => {
@@ -113,13 +163,28 @@ export const useChatStore = create((set, get) => ({
             senderRole,
             text: trimmed,
             timestamp: getTimestamp(),
+            createdAt: Date.now(),
           },
         ],
+        updatedAt: Date.now(),
       }
     })
 
-    storage.set(STORAGE_KEYS.chat, next)
     set({ conversations: next })
-    emitSync('MESSAGE_SENT')
+
+    if (db) {
+      const conversation = next.find((conv) => conv.id === conversationId)
+      const message = conversation?.messages?.[conversation.messages.length - 1]
+      if (conversation && message) {
+        const messageRef = push(ref(db, `conversations/${conversationId}/messages`))
+        dbSet(messageRef, message)
+        dbUpdate(ref(db, `conversations/${conversationId}`), {
+          unreadBy: conversation.unreadBy || {},
+          updatedAt: conversation.updatedAt || Date.now(),
+        })
+      }
+    } else {
+      storage.set(STORAGE_KEYS.chat, next)
+    }
   },
 }))

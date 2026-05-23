@@ -1,37 +1,60 @@
 import { create } from 'zustand'
 import { storage } from '../services/storage'
 import { STORAGE_KEYS } from '../utils/constants'
-import { emitSync, onSync } from '../utils/broadcast'
+import { db } from '../lib/firebase'
+import { onValue, ref, set as dbSet } from 'firebase/database'
 import { useDriverStore } from './driverStore'
 
 const getUsers = () => storage.get(STORAGE_KEYS.users, [])
 const getSession = () => storage.get(STORAGE_KEYS.session, null)
 
 const normalizeUsername = (value) => value.trim().toLowerCase()
+const usersRef = () => ref(db, 'users')
+
+const usersObjectToArray = (users) =>
+  Object.values(users || {})
+    .filter(Boolean)
+    .map((user) => ({
+      ...user,
+      username: normalizeUsername(user.username || ''),
+    }))
+    .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
+
+const usersArrayToObject = (users) =>
+  (Array.isArray(users) ? users : []).reduce((acc, user) => {
+    if (!user?.username) return acc
+    const normalizedUsername = normalizeUsername(user.username)
+    acc[normalizedUsername] = {
+      ...user,
+      username: normalizedUsername,
+    }
+    return acc
+  }, {})
 
 let authSyncReady = false
+let authUsersSeeded = false
 
 export const useAuthStore = create((set, get) => ({
   users: getUsers(),
   session: getSession(),
 
   initSync: () => {
-    if (authSyncReady || typeof window === 'undefined') return
+    if (authSyncReady || typeof window === 'undefined' || !db) return
     authSyncReady = true
 
-    window.addEventListener('storage', (event) => {
-      if (event.key === STORAGE_KEYS.users) {
-        set({ users: getUsers() })
-      }
-      if (event.key === STORAGE_KEYS.session) {
-        set({ session: getSession() })
-      }
-    })
+    onValue(usersRef(), (snapshot) => {
+      const remoteUsers = snapshot.val()
 
-    onSync((message) => {
-      if (message?.type === 'USER_UPDATED') {
-        set({ users: getUsers(), session: getSession() })
+      if (!remoteUsers && !authUsersSeeded) {
+        const legacyUsers = getUsers()
+        if (Array.isArray(legacyUsers) && legacyUsers.length > 0) {
+          authUsersSeeded = true
+          dbSet(usersRef(), usersArrayToObject(legacyUsers))
+          return
+        }
       }
+
+      set({ users: usersObjectToArray(remoteUsers), session: getSession() })
     })
   },
 
@@ -57,7 +80,6 @@ export const useAuthStore = create((set, get) => ({
 
     storage.set(STORAGE_KEYS.session, session)
     set({ session })
-    emitSync('USER_UPDATED')
     return { ok: true, role: user.role }
   },
 
@@ -76,10 +98,16 @@ export const useAuthStore = create((set, get) => ({
       username,
       password: payload.password.trim(),
       driverNumber: role === 'driver' ? (payload.driverNumber || '').trim() : '',
+      createdAt: Date.now(),
     }
 
     const nextUsers = [newUser, ...users]
-    storage.set(STORAGE_KEYS.users, nextUsers)
+
+    if (db) {
+      dbSet(usersRef(), usersArrayToObject(nextUsers))
+    } else {
+      storage.set(STORAGE_KEYS.users, nextUsers)
+    }
 
     if (role === 'driver') {
       useDriverStore.getState().registerDriverProfile({
@@ -99,13 +127,11 @@ export const useAuthStore = create((set, get) => ({
 
     storage.set(STORAGE_KEYS.session, session)
     set({ users: nextUsers, session })
-    emitSync('USER_UPDATED')
     return { ok: true, role }
   },
 
   logout: () => {
     storage.remove(STORAGE_KEYS.session)
     set({ session: null })
-    emitSync('USER_UPDATED')
   },
 }))

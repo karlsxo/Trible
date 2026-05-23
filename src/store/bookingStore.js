@@ -1,14 +1,17 @@
 import { create } from 'zustand'
 import { storage } from '../services/storage'
 import { STORAGE_KEYS } from '../utils/constants'
-import { emitSync, onSync } from '../utils/broadcast'
+import { db } from '../lib/firebase'
+import { onValue, push, ref, remove, set as dbSet, update as dbUpdate } from 'firebase/database'
 import { useDriverStore } from './driverStore'
 
 const getBookings = () => storage.get(STORAGE_KEYS.bookings, [])
+const bookingsRef = () => ref(db, 'bookings')
 
 let bookingSyncReady = false
+let bookingSeeded = false
 
-  const asDriverCard = (driver) => {
+const asDriverCard = (driver) => {
   const seats = Number(driver.availableSeats) || 0
   return {
     id: driver.id,
@@ -16,34 +19,47 @@ let bookingSyncReady = false
     driverUsername: driver.username,
     driverId: driver.driverNumber || '',
     seats,
-      terminal: driver.terminal ?? '',
-      // show whatever the driver has set (allow custom or empty routes)
-      route: driver.destination ?? '',
+    terminal: driver.terminal ?? '',
+    route: driver.destination ?? '',
     status: driver.online ? (seats > 0 ? 'Available' : 'Full') : 'Offline',
   }
 }
+
+const bookingsObjectToArray = (bookings) =>
+  Object.entries(bookings || {})
+    .map(([id, booking]) => ({
+      ...booking,
+      id: booking.id || id,
+    }))
+    .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
+
+const bookingsArrayToObject = (bookings) =>
+  (Array.isArray(bookings) ? bookings : []).reduce((acc, booking) => {
+    if (!booking?.id) return acc
+    acc[String(booking.id)] = booking
+    return acc
+  }, {})
 
 export const useBookingStore = create((set, get) => ({
   bookings: getBookings(),
 
   initSync: () => {
-    if (bookingSyncReady || typeof window === 'undefined') return
+    if (bookingSyncReady || typeof window === 'undefined' || !db) return
     bookingSyncReady = true
 
-    window.addEventListener('storage', (event) => {
-      if (event.key === STORAGE_KEYS.bookings) {
-        set({ bookings: getBookings() })
-      }
-    })
+    onValue(bookingsRef(), (snapshot) => {
+      const remoteBookings = snapshot.val()
 
-    onSync((message) => {
-      if (
-        message?.type === 'BOOKING_CREATED' ||
-        message?.type === 'BOOKING_CANCELLED' ||
-        message?.type === 'SEAT_UPDATED'
-      ) {
-        set({ bookings: getBookings() })
+      if (!remoteBookings && !bookingSeeded) {
+        const legacyBookings = getBookings()
+        if (Array.isArray(legacyBookings) && legacyBookings.length > 0) {
+          bookingSeeded = true
+          dbSet(bookingsRef(), bookingsArrayToObject(legacyBookings))
+          return
+        }
       }
+
+      set({ bookings: bookingsObjectToArray(remoteBookings) })
     })
   },
 
@@ -64,11 +80,7 @@ export const useBookingStore = create((set, get) => ({
     }
 
     const nextSeats = (Number(driver.availableSeats) || 0) - 1
-    driverStore.updateDriverProfile(
-      driver.username,
-      { availableSeats: nextSeats },
-      'SEAT_UPDATED',
-    )
+    driverStore.updateDriverProfile(driver.username, { availableSeats: nextSeats })
 
     const booking = {
       id: Date.now(),
@@ -85,12 +97,20 @@ export const useBookingStore = create((set, get) => ({
         hour: 'numeric',
         minute: '2-digit',
       }),
+      createdAt: Date.now(),
     }
 
-    const nextBookings = [booking, ...get().bookings]
-    storage.set(STORAGE_KEYS.bookings, nextBookings)
+    const bookingRef = db ? push(bookingsRef()) : null
+    const bookingId = bookingRef?.key || String(booking.id)
+    const nextBooking = { ...booking, id: bookingId }
+    const nextBookings = [nextBooking, ...get().bookings]
     set({ bookings: nextBookings })
-    emitSync('BOOKING_CREATED')
+
+    if (db && bookingRef) {
+      dbSet(bookingRef, nextBooking)
+    } else {
+      storage.set(STORAGE_KEYS.bookings, nextBookings)
+    }
 
     return { ok: true, seatsLeft: nextSeats }
   },
@@ -99,9 +119,13 @@ export const useBookingStore = create((set, get) => ({
     const nextBookings = get().bookings.map((b) =>
       b.id === id ? { ...b, status: 'Accepted' } : b,
     )
-    storage.set(STORAGE_KEYS.bookings, nextBookings)
     set({ bookings: nextBookings })
-    emitSync('BOOKING_CREATED')
+
+    if (db) {
+      dbUpdate(ref(db, `bookings/${id}`), { status: 'Accepted' })
+    } else {
+      storage.set(STORAGE_KEYS.bookings, nextBookings)
+    }
   },
 
   cancelBooking: (bookingId, studentUsername) => {
@@ -114,51 +138,39 @@ export const useBookingStore = create((set, get) => ({
     const driver = driverStore.getDriverByUsername(booking.driverUsername)
     if (driver) {
       const nextSeats = (Number(driver.availableSeats) || 0) + (booking.seatCount || 1)
-      driverStore.updateDriverProfile(
-        driver.username,
-        { availableSeats: nextSeats },
-        'SEAT_UPDATED',
-      )
+      driverStore.updateDriverProfile(driver.username, { availableSeats: nextSeats })
     }
 
     const nextBookings = get().bookings.filter((b) => b.id !== bookingId)
-    storage.set(STORAGE_KEYS.bookings, nextBookings)
     set({ bookings: nextBookings })
-    emitSync('BOOKING_CANCELLED')
+
+    if (db) {
+      remove(ref(db, `bookings/${bookingId}`))
+    } else {
+      storage.set(STORAGE_KEYS.bookings, nextBookings)
+    }
     return { ok: true }
   },
 
   setDriverOnline: (username, online) => {
-    useDriverStore
-      .getState()
-      .updateDriverProfile(username, { online }, 'DRIVER_STATUS_CHANGED')
+    useDriverStore.getState().updateDriverProfile(username, { online })
   },
 
   updateDriverSeats: (username, seats) => {
-    useDriverStore
-      .getState()
-      .updateDriverProfile(username, { availableSeats: Math.max(0, Number(seats) || 0) }, 'SEAT_UPDATED')
+    useDriverStore.getState().updateDriverProfile(username, {
+      availableSeats: Math.max(0, Number(seats) || 0),
+    })
   },
 
   updateDriverDestination: (username, destination) => {
-    useDriverStore
-      .getState()
-      .updateDriverProfile(
-        username,
-        // persist whatever the driver types (allow custom/empty routes)
-        { destination: destination },
-        'DRIVER_UPDATED',
-      )
+    useDriverStore.getState().updateDriverProfile(username, {
+      destination,
+    })
   },
 
   updateDriverTerminal: (username, terminal) => {
-    useDriverStore
-      .getState()
-      .updateDriverProfile(
-        username,
-        // persist whatever the driver types (allow custom/empty terminals)
-        { terminal: terminal },
-        'DRIVER_UPDATED',
-      )
+    useDriverStore.getState().updateDriverProfile(username, {
+      terminal,
+    })
   },
 }))
