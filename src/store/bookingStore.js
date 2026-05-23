@@ -8,7 +8,7 @@ const getBookings = () => storage.get(STORAGE_KEYS.bookings, [])
 
 let bookingSyncReady = false
 
-const asDriverCard = (driver) => {
+  const asDriverCard = (driver) => {
   const seats = Number(driver.availableSeats) || 0
   return {
     id: driver.id,
@@ -16,8 +16,9 @@ const asDriverCard = (driver) => {
     driverUsername: driver.username,
     driverId: driver.driverNumber || '',
     seats,
-    terminal: driver.terminal || 'Campus Terminal',
-    route: driver.destination || 'Campus Route',
+      terminal: driver.terminal ?? '',
+      // show whatever the driver has set (allow custom or empty routes)
+      route: driver.destination ?? '',
     status: driver.online ? (seats > 0 ? 'Available' : 'Full') : 'Offline',
   }
 }
@@ -73,11 +74,11 @@ export const useBookingStore = create((set, get) => ({
       id: Date.now(),
       driver: driver.fullName,
       driverUsername: driver.username,
-      route: driver.destination || data.route || 'Campus Route',
-      terminal: driver.terminal || 'Campus Terminal',
+      route: driver.destination || data.route || '',
+      terminal: driver.terminal || '',
       student: data.studentName || 'Student Rider',
       studentUsername: data.studentUsername || '',
-      destination: data.route || driver.destination || 'Campus Route',
+      destination: data.route || driver.destination || '',
       seatCount: 1,
       status: 'Pending',
       time: new Date().toLocaleTimeString('en-US', {
@@ -144,7 +145,8 @@ export const useBookingStore = create((set, get) => ({
       .getState()
       .updateDriverProfile(
         username,
-        { destination: destination.trim() || 'Campus Route' },
+        // persist whatever the driver types (allow custom/empty routes)
+        { destination: destination },
         'DRIVER_UPDATED',
       )
   },
@@ -154,7 +156,8 @@ export const useBookingStore = create((set, get) => ({
       .getState()
       .updateDriverProfile(
         username,
-        { terminal: terminal.trim() || 'Campus Terminal' },
+        // persist whatever the driver types (allow custom/empty terminals)
+        { terminal: terminal },
         'DRIVER_UPDATED',
       )
   },

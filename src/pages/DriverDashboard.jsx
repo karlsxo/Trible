@@ -1,5 +1,6 @@
 import { Activity, CircleDot, MessageSquareText, TicketCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import Button from '../components/Button'
 import DashboardCard from '../components/DashboardCard'
 import DashboardLayout from '../layouts/DashboardLayout'
@@ -30,8 +31,8 @@ const DriverDashboard = () => {
     0,
   )
   const seats = myDriver?.seats ?? 0
-  const terminal = myDriver?.terminal ?? 'Campus Terminal'
-  const destination = myDriver?.route ?? 'Campus Route'
+  const terminal = myDriver?.terminal ?? ''
+  const destination = myDriver?.route ?? ''
   const statusIsOnline = myDriver?.status !== 'Offline'
   const online = statusIsOnline
 
@@ -49,8 +50,8 @@ const DriverDashboard = () => {
       studentName: student.student || 'Student',
       driverId: session?.username || 'driver',
       driverName: session?.name || 'Driver',
-      terminal: terminal || student.terminal || 'Campus Terminal',
-      route: student.destination || destination || 'Campus Route',
+      terminal: terminal || student.terminal || '',
+      route: student.destination || destination || '',
     })
     navigate('/chat')
   }
@@ -58,6 +59,24 @@ const DriverDashboard = () => {
   const handleAccept = (booking) => {
     acceptBooking(booking.id)
   }
+
+  const saveRoute = (value) => {
+    updateDriverDestination(session?.username, value)
+  }
+
+  // local route state to keep input responsive while syncing to store
+  const [routeValue, setRouteValue] = useState(destination)
+
+  // local terminal state to keep input responsive while syncing to store
+  const [terminalValue, setTerminalValue] = useState(terminal)
+
+  useEffect(() => {
+    setRouteValue(destination)
+  }, [destination])
+
+  useEffect(() => {
+    setTerminalValue(terminal)
+  }, [terminal])
 
   return (
     <DashboardLayout
@@ -136,19 +155,31 @@ const DriverDashboard = () => {
           <div className="mt-4">
             <Input
               label="Waiting Terminal"
-              value={terminal}
-              onChange={(event) =>
-                updateDriverTerminal(session?.username, event.target.value)
-              }
+              placeholder="Enter waiting terminal..."
+              value={terminalValue}
+              onChange={(event) => {
+                const v = event.target.value
+                setTerminalValue(v)
+                if (session?.username) updateDriverTerminal(session?.username, v)
+              }}
             />
           </div>
           <div className="mt-4">
             <Input
-              label="Destination"
-              value={destination}
-              onChange={(event) =>
-                updateDriverDestination(session?.username, event.target.value)
-              }
+              key={`${session?.username || 'driver'}-route`}
+              label="Route"
+              placeholder="Enter destination route..."
+              value={routeValue}
+              onChange={(event) => {
+                const v = event.target.value
+                setRouteValue(v)
+                if (session?.username) saveRoute(v)
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.currentTarget.blur()
+                }
+              }}
             />
           </div>
           <div className="mt-6 flex items-center gap-3">
