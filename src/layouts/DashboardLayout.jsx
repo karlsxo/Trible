@@ -6,7 +6,14 @@ import Button from '../components/Button'
 import Sidebar from '../components/Sidebar'
 import { useAuth } from '../context/AuthContext'
 
-const DashboardLayout = ({ heading, title, subtitle, children, actions }) => {
+const DashboardLayout = ({
+  heading,
+  title,
+  subtitle,
+  children,
+  actions,
+  showBack = true,
+}) => {
   const { logout, session } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const location = useLocation()
@@ -45,7 +52,9 @@ const DashboardLayout = ({ heading, title, subtitle, children, actions }) => {
             </div>
           </div>
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center md:w-auto">
-            <BackButton fallback={baseRoute} className="w-full sm:w-auto" />
+            {showBack ? (
+              <BackButton fallback={baseRoute} className="w-full sm:w-auto" />
+            ) : null}
             {actions}
             <Button
               variant="ghost"

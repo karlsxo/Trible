@@ -10,12 +10,13 @@ import MessageBubble from '../components/MessageBubble'
 import ChatInput from '../components/ChatInput'
 import EmptyChatState from '../components/EmptyChatState'
 import BackButton from '../components/BackButton'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useBooking } from '../context/BookingContext'
 
 const Chat = () => {
   const { session } = useAuth()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { conversations, setActiveConversation, sendMessage } = useChat()
   const { tricycles } = useBooking()
   const messagesEndRef = useRef(null)
@@ -29,17 +30,19 @@ const Chat = () => {
       ? c.driverId === session.username
       : c.studentId === session?.username,
   )
+  const requestedConversationId = searchParams.get('conversation')
+  const effectiveConversationId = requestedConversationId || selectedConversationId
 
   useEffect(() => {
     if (!session) navigate('/welcome')
   }, [session, navigate])
 
   const active =
-    scopedConversations.find((c) => c.id === selectedConversationId) || null
+    scopedConversations.find((c) => c.id === effectiveConversationId) || null
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [active?.messages?.length, selectedConversationId])
+  }, [active?.messages?.length, effectiveConversationId])
 
   const handleSend = (text) => {
     if (!active) return
@@ -66,7 +69,9 @@ const Chat = () => {
         />
       </div>
       <ChatLayout
-        mobileMode={active && mobileChatOpen ? 'chat' : 'list'}
+        mobileMode={
+          active && (mobileChatOpen || requestedConversationId) ? 'chat' : 'list'
+        }
         sidebar={
           <ChatSidebar
             title={session?.role === 'driver' ? 'Driver chats' : 'Your chats'}
@@ -84,10 +89,13 @@ const Chat = () => {
                     ? driverStatusMap[c.driverId] || 'Offline'
                     : 'Online',
               }))}
-              activeId={selectedConversationId}
+              activeId={effectiveConversationId}
               onSelect={(id) => {
                 setActiveConversation(id, session.username)
                 setSelectedConversationId(id)
+                if (requestedConversationId) {
+                  setSearchParams({}, { replace: true })
+                }
                 setMobileChatOpen(true)
               }}
             />
@@ -102,7 +110,12 @@ const Chat = () => {
                 session.role === 'driver' ||
                 driverStatusMap[active.driverId] !== 'Offline'
               }
-              onBack={() => setMobileChatOpen(false)}
+              onBack={() => {
+                if (requestedConversationId) {
+                  setSearchParams({}, { replace: true })
+                }
+                setMobileChatOpen(false)
+              }}
             />
           ) : (
             <ChatHeader title="No active chat" subtitle="Select a conversation" />

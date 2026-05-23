@@ -20,6 +20,10 @@ const StudentDashboard = () => {
   const [modal, setModal] = useState(null)
   const myBookings = bookings.filter((b) => b.studentUsername === session?.username)
   const myChats = conversations.filter((c) => c.studentId === session?.username)
+  const unreadMessages = myChats.reduce(
+    (total, chat) => total + (chat.unreadBy?.[session?.username] || 0),
+    0,
+  )
   const activeTerminals = new Set(tricycles.map((t) => t.terminal)).size
 
   const handleBook = (data) => {
@@ -42,7 +46,7 @@ const StudentDashboard = () => {
   }
 
   const handleChat = (data) => {
-    ensureConversation({
+    const conversationId = ensureConversation({
       studentId: session?.username || 'student',
       studentName: session?.name || 'Student Rider',
       driverId: data.driverUsername,
@@ -50,7 +54,7 @@ const StudentDashboard = () => {
       terminal: data.terminal,
       route: data.route,
     })
-    navigate('/chat')
+    navigate(`/chat?conversation=${encodeURIComponent(conversationId)}`)
   }
 
   const handleCancelBooking = (bookingId) => {
@@ -67,6 +71,7 @@ const StudentDashboard = () => {
       heading="Student"
       title="Student Dashboard"
       subtitle="Available tricycles near you"
+      showBack={false}
       actions={
         <div className="flex items-center gap-3 text-xs text-slate-400">
           <Users size={16} />
@@ -94,6 +99,31 @@ const StudentDashboard = () => {
           icon={Users}
         />
       </div>
+
+      {unreadMessages > 0 ? (
+        <div className="glass mt-6 flex flex-col gap-4 rounded-3xl p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/70">
+              Messages
+            </p>
+            <p className="mt-1 text-base font-semibold text-white">
+              {unreadMessages} unread {unreadMessages === 1 ? 'message' : 'messages'}
+            </p>
+            <p className="text-sm text-slate-300">
+              A driver has sent you a new update.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => navigate('/chat')}
+            className="w-full sm:w-auto"
+          >
+            <MessageSquareText size={16} />
+            Open chats
+          </Button>
+        </div>
+      ) : null}
 
       <div className="mt-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
