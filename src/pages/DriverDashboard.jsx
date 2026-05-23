@@ -1,5 +1,4 @@
 import { Activity, CircleDot, TicketCheck } from 'lucide-react'
-import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
 import DashboardCard from '../components/DashboardCard'
@@ -23,26 +22,21 @@ const DriverDashboard = () => {
     tricycles,
   } = useBooking()
   const { ensureConversation } = useChat()
-  const [online, setOnline] = useState(true)
   const myDriver = tricycles.find((d) => d.driverUsername === session?.username)
   const waiting = bookings.filter((b) => b.driverUsername === session?.username)
   const seats = myDriver?.seats ?? 0
   const terminal = myDriver?.terminal ?? 'Campus Terminal'
   const destination = myDriver?.route ?? 'Campus Route'
   const statusIsOnline = myDriver?.status !== 'Offline'
+  const online = statusIsOnline
 
   // Sync online status whenever it changes
   const toggleOnline = () => {
-    const next = !online
-    setOnline(next)
+    const next = !statusIsOnline
     if (session?.username) {
       setDriverOnline(session.username, next)
     }
   }
-
-  useEffect(() => {
-    setOnline(statusIsOnline)
-  }, [statusIsOnline])
 
   const handleChat = (student) => {
     ensureConversation({
@@ -67,7 +61,7 @@ const DriverDashboard = () => {
       subtitle="Manage seats and ride requests"
       actions={
         <button
-          className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${
+          className={`flex min-h-10 w-full items-center justify-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition sm:w-auto ${
             online
               ? 'border-emerald-400/40 bg-emerald-400/15 text-emerald-200'
               : 'border-slate-500/40 bg-white/5 text-slate-300'
@@ -79,7 +73,7 @@ const DriverDashboard = () => {
         </button>
       }
     >
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <DashboardCard
           title="Seats"
           value={`${seats} left`}
@@ -100,12 +94,12 @@ const DriverDashboard = () => {
         />
       </div>
 
-      <div className="mt-8 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="glass rounded-3xl p-6">
+      <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+        <div className="glass min-w-0 rounded-3xl p-4 sm:p-6">
           <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/70">
             Seat Manager
           </p>
-          <h2 className="text-xl font-semibold text-white">
+          <h2 className="text-lg font-semibold text-white sm:text-xl">
             Adjust available seats
           </h2>
           <div className="mt-4">
@@ -131,16 +125,21 @@ const DriverDashboard = () => {
               size="sm"
               variant="ghost"
               onClick={() => updateDriverSeats(session?.username, seats - 1)}
+              className="h-11 w-11 px-0"
             >
               -
             </Button>
             <span className="text-lg font-semibold text-white">{seats}</span>
-            <Button size="sm" onClick={() => updateDriverSeats(session?.username, seats + 1)}>
+            <Button
+              size="sm"
+              onClick={() => updateDriverSeats(session?.username, seats + 1)}
+              className="h-11 w-11 px-0"
+            >
               +
             </Button>
           </div>
         </div>
-        <div className="glass rounded-3xl p-6">
+        <div className="glass min-w-0 rounded-3xl p-4 sm:p-6">
           <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/70">
             Current student passengers
           </p>

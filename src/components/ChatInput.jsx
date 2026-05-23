@@ -13,16 +13,19 @@ const ChatInput = ({ onSend }) => {
   }
 
   return (
-    <form className="mt-4 flex gap-2" onSubmit={handleSubmit}>
+    <form
+      className="sticky bottom-0 mt-3 flex gap-2 border-t border-white/5 bg-night-950/50 pt-3 backdrop-blur md:mt-4 md:pt-4"
+      onSubmit={handleSubmit}
+    >
       <input
         value={text}
         onChange={(event) => setText(event.target.value)}
         placeholder="Type your message"
-        className="flex-1 rounded-full border border-slate-700/70 bg-night-800/80 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+        className="min-h-11 min-w-0 flex-1 rounded-full border border-slate-700/70 bg-night-800/80 px-4 py-2.5 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-emerald-400/60"
       />
-      <Button size="sm" type="submit">
+      <Button size="sm" type="submit" className="shrink-0 px-4">
         <Send size={16} />
-        Send
+        <span className="hidden sm:inline">Send</span>
       </Button>
     </form>
   )

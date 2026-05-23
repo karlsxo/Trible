@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import AuthForm from '../components/AuthForm'
+import BackButton from '../components/BackButton'
 import ToastNotification from '../components/ToastNotification'
 import { useAuth } from '../context/AuthContext'
 
@@ -75,8 +76,11 @@ const Auth = () => {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-night-950 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-night-950 px-4 py-6">
       <div className="absolute inset-0 bg-aurora opacity-70" />
+      <div className="fixed left-4 top-4 z-20">
+        <BackButton fallback="/welcome" />
+      </div>
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -141,7 +145,7 @@ const Auth = () => {
           />
         </div>
         <div className="mt-6 text-center text-xs text-slate-400">
-          <Link to="/welcome" className="transition hover:text-white">
+          <Link to="/welcome" className="inline-flex min-h-10 items-center justify-center px-3 transition hover:text-white">
             Back to role selection
           </Link>
         </div>

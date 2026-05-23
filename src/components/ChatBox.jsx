@@ -24,7 +24,7 @@ const ChatBox = ({ messages = [], onSend, title, currentRole = 'student' }) => {
         </p>
         <p className="text-lg font-semibold text-white">{title}</p>
       </div>
-      <div className="flex-1 space-y-3 overflow-y-auto pr-2">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 sm:pr-2">
         {messages.map((item) => {
           const isMe = item.sender === currentRole
           return (
@@ -33,7 +33,7 @@ const ChatBox = ({ messages = [], onSend, title, currentRole = 'student' }) => {
             className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm ${
+              className={`max-w-[86%] rounded-2xl px-4 py-3 text-sm sm:max-w-[72%] ${
                 isMe
                   ? 'bg-emerald-400/20 text-emerald-100'
                   : 'bg-white/10 text-slate-100'
@@ -54,7 +54,7 @@ const ChatBox = ({ messages = [], onSend, title, currentRole = 'student' }) => {
           value={text}
           onChange={(event) => setText(event.target.value)}
           placeholder="Type your message"
-          className="flex-1 rounded-full border border-slate-700/70 bg-night-800/80 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+          className="min-h-11 min-w-0 flex-1 rounded-full border border-slate-700/70 bg-night-800/80 px-4 py-2 text-sm text-slate-100 placeholder:text-slate-500"
         />
         <Button size="sm" onClick={handleSend}>
           <Send size={16} />

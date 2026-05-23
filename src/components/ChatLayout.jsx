@@ -1,10 +1,20 @@
-const ChatLayout = ({ sidebar, header, children }) => {
+const ChatLayout = ({ sidebar, header, children, mobileMode = 'list' }) => {
   return (
-    <div className="grid h-[70vh] grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
-      <div className="glass rounded-3xl p-4 md:p-5">{sidebar}</div>
-      <div className="glass flex h-full flex-col rounded-3xl p-4 md:p-6">
+    <div className="grid min-h-[calc(100svh-7rem)] grid-cols-1 gap-4 overflow-hidden lg:min-h-[calc(100vh-9rem)] lg:grid-cols-[340px_minmax(0,1fr)]">
+      <div
+        className={`glass min-h-0 rounded-3xl p-3 sm:p-4 md:p-5 ${
+          mobileMode === 'chat' ? 'hidden lg:block' : 'block'
+        }`}
+      >
+        {sidebar}
+      </div>
+      <div
+        className={`glass min-h-0 flex-col overflow-hidden rounded-3xl p-3 sm:p-4 md:p-6 ${
+          mobileMode === 'list' ? 'hidden lg:flex' : 'flex'
+        }`}
+      >
         {header}
-        <div className="mt-4 flex-1 overflow-y-auto pr-2">{children}</div>
+        <div className="mt-4 min-h-0 flex-1 overflow-hidden">{children}</div>
       </div>
     </div>
   )

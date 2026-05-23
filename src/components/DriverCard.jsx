@@ -6,8 +6,10 @@ const DriverCard = ({ data, onBook, onChat }) => {
   return (
     <div className="glass flex h-full flex-col justify-between rounded-3xl p-5 shadow-soft">
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-lg font-semibold text-white">{data.driver}</p>
+        <div className="flex items-start justify-between gap-3">
+          <p className="min-w-0 break-words text-lg font-semibold text-white">
+            {data.driver}
+          </p>
           <StatusBadge status={data.status} />
         </div>
         <div className="space-y-1 text-sm text-slate-300">

@@ -1,13 +1,15 @@
 const ChatSidebar = ({ title, subtitle, children }) => {
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div>
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="shrink-0">
         <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/70">
           {title}
         </p>
-        <p className="text-sm text-slate-300">{subtitle}</p>
+        <p className="truncate text-sm text-slate-300">{subtitle}</p>
       </div>
-      <div className="flex-1 space-y-3 overflow-y-auto pr-2">{children}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1 sm:pr-2">
+        {children}
+      </div>
     </div>
   )
 }

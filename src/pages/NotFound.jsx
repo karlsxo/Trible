@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import BackButton from '../components/BackButton'
 import Button from '../components/Button'
 
 const NotFound = () => {
@@ -11,9 +12,14 @@ const NotFound = () => {
       <p className="text-sm text-slate-300">
         The page you are looking for is not part of the TRIBLE flow.
       </p>
-      <Link to="/welcome">
-        <Button size="sm">Back to welcome</Button>
-      </Link>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <BackButton fallback="/welcome" />
+        <Link to="/welcome">
+          <Button size="sm" className="w-full sm:w-auto">
+            Back to welcome
+          </Button>
+        </Link>
+      </div>
     </div>
   )
 }

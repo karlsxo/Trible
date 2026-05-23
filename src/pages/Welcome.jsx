@@ -17,7 +17,7 @@ const Welcome = () => {
   }
 
   return (
-    <div className="bg-night-950 text-slate-100">
+    <div className="flex min-h-screen flex-col bg-night-950 text-slate-100">
       <Navbar />
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col items-center px-4 pb-24 pt-16 md:px-6">
         <motion.div

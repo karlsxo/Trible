@@ -19,11 +19,6 @@ const Navbar = () => {
           </div>
         </Link>
         <div className="hidden items-center gap-3 md:flex">
-          <Link to="/auth/student">
-            <Button variant="ghost" size="sm">
-              Login
-            </Button>
-          </Link>
           <Link to="/welcome">
             <Button size="sm">Role Selection</Button>
           </Link>
@@ -39,11 +34,6 @@ const Navbar = () => {
       {open ? (
         <div className="border-t border-white/5 bg-night-950/95 px-4 py-4 text-sm text-slate-300 md:hidden">
           <div className="flex flex-col gap-3">
-            <Link to="/auth/student">
-              <Button variant="ghost" size="sm" className="w-full">
-                Login
-              </Button>
-            </Link>
             <Link to="/welcome">
               <Button size="sm" className="w-full">
                 Role Selection

@@ -15,7 +15,7 @@ const Settings = () => {
       title="Settings"
       subtitle="Appearance and preferences"
     >
-      <div className="glass max-w-2xl rounded-3xl p-6">
+      <div className="glass w-full max-w-2xl rounded-3xl p-4 sm:p-6">
         <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/70">
           Theme
         </p>
@@ -23,8 +23,8 @@ const Settings = () => {
         <p className="mt-2 text-sm text-slate-300">
           Switch between dark and light mode.
         </p>
-        <div className="mt-5 flex items-center gap-3">
-          <Button variant="ghost" onClick={toggleTheme}>
+        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button variant="ghost" onClick={toggleTheme} className="w-full sm:w-auto">
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             {theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           </Button>

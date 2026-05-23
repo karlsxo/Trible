@@ -74,7 +74,7 @@ const StudentDashboard = () => {
         </div>
       }
     >
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <DashboardCard
           title="Bookings"
           value={String(myBookings.length).padStart(2, '0')}
@@ -95,18 +95,18 @@ const StudentDashboard = () => {
         />
       </div>
 
-      <div className="mt-8 flex items-center justify-between">
-        <div>
+      <div className="mt-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/70">
             Available Tricycles
           </p>
-          <h2 className="text-xl font-semibold text-white">
+          <h2 className="text-lg font-semibold text-white sm:text-xl">
             Choose a driver and reserve your seat
           </h2>
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {tricycles.length === 0 ? (
           <div className="glass rounded-3xl p-6 text-slate-300">
             No Available Drivers
@@ -138,16 +138,17 @@ const StudentDashboard = () => {
                 key={booking.id}
                 className="glass flex flex-col justify-between gap-4 rounded-3xl p-5 md:flex-row md:items-center"
               >
-                <div className="text-sm text-slate-300">
+                <div className="min-w-0 text-sm text-slate-300">
                   <p className="text-base font-semibold text-white">{booking.driver}</p>
-                  <p>Terminal: {booking.terminal}</p>
-                  <p>Destination: {booking.destination}</p>
+                  <p className="break-words">Terminal: {booking.terminal}</p>
+                  <p className="break-words">Destination: {booking.destination}</p>
                   <p>Status: {booking.status}</p>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleCancelBooking(booking.id)}
+                  className="w-full md:w-auto"
                 >
                   Cancel Booking
                 </Button>
