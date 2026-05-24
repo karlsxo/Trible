@@ -6,7 +6,7 @@ import {
   signOut,
 } from 'firebase/auth'
 import { get as dbGet, onValue, ref, set as dbSet } from 'firebase/database'
-import { auth, db } from '../lib/firebase'
+import { auth, db, firebaseConfigStatus } from '../lib/firebase'
 import { storage } from '../services/storage'
 import { STORAGE_KEYS } from '../utils/constants'
 import { useDriverStore } from './driverStore'
@@ -44,6 +44,12 @@ const getAuthMessage = (error, fallback = 'Authentication failed.') => {
   if (code.includes('weak-password')) return 'Password must be at least 6 characters.'
   if (code.includes('network-request-failed')) return 'Network error. Check your connection.'
   return error?.message || fallback
+}
+
+const getConfigMessage = () => {
+  const missing = firebaseConfigStatus.missingRequiredEnvKeys
+  if (!missing.length) return 'Firebase Authentication is not configured.'
+  return `Firebase is missing Vercel environment variables: ${missing.join(', ')}. Add them, then redeploy.`
 }
 
 let authSyncReady = false
@@ -109,7 +115,7 @@ export const useAuthStore = create((set, get) => ({
 
   signupUser: async (role, payload) => {
     if (!auth || !db) {
-      return { ok: false, message: 'Firebase Authentication is not configured.' }
+      return { ok: false, message: getConfigMessage() }
     }
 
     const email = normalizeEmail(payload.email || '')
@@ -163,7 +169,7 @@ export const useAuthStore = create((set, get) => ({
 
   loginUser: async (email, password, role) => {
     if (!auth || !db) {
-      return { ok: false, message: 'Firebase Authentication is not configured.' }
+      return { ok: false, message: getConfigMessage() }
     }
 
     try {
