@@ -1,79 +1,49 @@
-# TRIBLE — Tricycle Available
+# TRIBLE - Tricycle Available
 
-A modern web application that connects students with tricycle drivers for faster, smarter terminal booking on campus.
+A realtime transportation booking MVP that connects students with tricycle drivers for faster campus terminal booking.
 
-Built with **React**, **Vite**, **Tailwind CSS**, and **Framer Motion** — featuring premium dark emerald UI, real-time-feeling chat, and full authentication flow.
+Built with React, Vite, Tailwind CSS, Framer Motion, Zustand, Firebase Authentication, and Firebase Realtime Database.
 
-## ✨ Features
+## Features
 
-- **Role-based authentication** — Students and drivers sign up and log in with their own accounts
-- **Driver discovery** — Registered drivers appear in the student dashboard in real time
-- **Seat booking** — Students can book available seats with live availability
-- **Real-time chat** — Built-in messaging system where students and drivers can communicate
-- **Driver online/offline** — Drivers can toggle visibility and appear/disappear from the student view
-- **Booking management** — Drivers can view and accept passenger requests
-- **Realtime sync** — Users, drivers, bookings, and chats sync across devices with Firebase Realtime Database
-- **Route protection** — Authenticated users are redirected to their correct dashboard
-- **Responsive design** — Works seamlessly on mobile, tablet, and desktop
+- Firebase email/password authentication for students and drivers
+- Cross-device login with Firebase Auth session persistence
+- Realtime driver discovery and online/offline status
+- Realtime seat booking and cancellation
+- Isolated student-driver conversations
+- Realtime chat synchronization across phones, laptops, browsers, and networks
+- Premium dark emerald UI, responsive layouts, and existing animation system
 
-## 🚀 Demo Flow
+## Tech Stack
 
-1. **Sign up as a Driver** → go to `/auth/driver`, create an account
-2. **Sign up as a Student** → go to `/auth/student`, create an account
-3. **See registered drivers** → student dashboard shows only drivers who have signed up
-4. **Book a seat & chat** → students can book seats and message drivers
-5. **Driver receives messages** → driver logs in and sees conversations
+- React 19
+- Vite
+- Tailwind CSS 3
+- Framer Motion
+- React Router DOM
+- Zustand
+- Firebase Authentication
+- Firebase Realtime Database
 
-## 🛠️ Tech Stack
-
-- **React 19** — UI framework
-- **Vite** — Build tool
-- **Tailwind CSS 3** — Utility-first styling
-- **Framer Motion** — Animations
-- **React Router DOM** — Client-side routing
-- **Lucide React** — Icons
-- **Firebase Realtime Database** — Shared source of truth for multi-device synchronization
-
-## 📁 Project Structure
-
-```
-src/
-├── components/       # UI components (auth, dashboard, chat, layout)
-├── context/           # State management (Auth, Booking, Chat)
-├── pages/             # Route pages (Welcome, Auth, Dashboards, Chat)
-├── routes/            # Protected route guards
-├── utils/             # LocalStorage helpers and constants
-├── lib/               # Firebase client setup
-├── data/              # Seed data
-├── services/          # Storage abstraction
-├── App.jsx            # Root app with routing
-└── main.jsx           # Entry point
-```
-
-## 🖥️ Getting Started
+## Getting Started
 
 ```bash
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
-
-# Build for production
 npm run build
-
-# Preview production build
 npm run preview
 ```
 
-## 🔥 Firebase Setup
+## Firebase Setup
 
-1. Create a Firebase project and enable Realtime Database.
-2. Copy [`.env.example`](.env.example) to `.env`.
-3. Fill in the Firebase values from your project settings.
-4. Start the app again so Vite loads the env vars.
+1. Create a Firebase project.
+2. Enable Authentication with the Email/Password provider.
+3. Enable Realtime Database.
+4. Copy `.env.example` to `.env`.
+5. Fill in the Firebase values from your project settings.
+6. Restart the app so Vite loads the env vars.
 
-Required variables:
+Required local and Vercel environment variables:
 
 - `VITE_FIREBASE_API_KEY`
 - `VITE_FIREBASE_AUTH_DOMAIN`
@@ -83,7 +53,7 @@ Required variables:
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
 
-## 📚 Realtime Database Structure
+## Realtime Database Nodes
 
 The app reads and writes these top-level nodes:
 
@@ -91,22 +61,51 @@ The app reads and writes these top-level nodes:
 - `drivers`
 - `bookings`
 - `conversations`
-- `students`
+- `messages`
 - `onlineStatus`
 
-For this MVP, the included [database.rules.json](database.rules.json) keeps those nodes writable so the mock-auth flow works across devices. Sign up with your own student and driver details after configuring Firebase.
+For this presentation MVP, `database.rules.json` keeps the demo nodes readable and writable so multi-device synchronization works during live testing.
 
-## 🌐 Pages / Routes
+## Auth Migration
+
+The migration script creates Firebase Auth users from legacy Realtime Database users and rewrites profiles under `users/<uid>`.
+
+Admin-only environment variables:
+
+- `FIREBASE_DATABASE_URL`
+- `GOOGLE_APPLICATION_CREDENTIALS` or `SERVICE_ACCOUNT_JSON`
+- `DEFAULT_MIGRATION_PASSWORD`
+- `LEGACY_EMAIL_DOMAIN`
+
+Never commit service account JSON, Firebase secrets, or credentials.
+
+Run:
+
+```bash
+npm run migrate:auth
+```
+
+## Verification Checklist
+
+1. Sign up as a driver on one device with email, username, and password.
+2. Log in as that driver on another browser or phone with the same email and password.
+3. Set terminal, route, seats, and online status; confirm the student dashboard updates without refresh.
+4. Sign up or log in as a student on another device.
+5. Book a driver seat; confirm the driver dashboard receives the booking and the seat count changes on both devices.
+6. Open chat from the student and driver accounts; send messages both ways and confirm they appear instantly without refresh.
+7. Refresh both browsers; confirm sessions restore and previous chats/bookings remain visible.
+
+## Routes
 
 | Route | Description |
-|-------|-------------|
-| `/welcome` | Role selection (Student / Driver) |
-| `/auth/student` | Student signup / login |
-| `/auth/driver` | Driver signup / login |
-| `/dashboard/student` | Student dashboard — browse drivers, book seats, chat |
-| `/dashboard/driver` | Driver console — manage seats, view passengers, chat |
-| `/chat` | Real-time messaging between students and drivers |
+| --- | --- |
+| `/welcome` | Role selection |
+| `/auth/student` | Student signup/login |
+| `/auth/driver` | Driver signup/login |
+| `/dashboard/student` | Student dashboard |
+| `/dashboard/driver` | Driver console |
+| `/chat` | Realtime messaging |
 
-## 📝 License
+## License
 
-MIT — built as a prototype for campus mobility experiences.
+MIT

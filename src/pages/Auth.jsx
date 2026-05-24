@@ -9,12 +9,13 @@ import { useAuth } from '../context/AuthContext'
 const Auth = () => {
   const { role } = useParams()
   const navigate = useNavigate()
-  const { login, signUp, session } = useAuth()
+  const { authReady, login, signUp, session } = useAuth()
   const [mode, setMode] = useState('login')
   const [toast, setToast] = useState(null)
   const [form, setForm] = useState({
     fullName: '',
     driverNumber: '',
+    email: '',
     username: '',
     identifier: '',
     password: '',
@@ -30,7 +31,7 @@ const Auth = () => {
   }
 
   // Already logged in — redirect
-  if (session) {
+  if (authReady && session) {
     const target =
       session.role === 'driver' ? '/dashboard/driver' : '/dashboard/student'
     return <Navigate to={target} replace />
@@ -59,6 +60,7 @@ const Auth = () => {
     const result = await signUp(normalizedRole, {
       fullName: form.fullName,
       driverNumber: form.driverNumber,
+      email: form.email,
       username: form.username,
       password: form.password,
     })
@@ -96,7 +98,7 @@ const Auth = () => {
           </h1>
           <p className="text-sm text-slate-300">
             {mode === 'login'
-              ? 'Use your username to sign in.'
+              ? 'Use your email to sign in.'
               : 'Enter your details to set up your profile.'}
           </p>
         </div>

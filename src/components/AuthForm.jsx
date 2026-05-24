@@ -26,20 +26,31 @@ const AuthForm = ({ role, mode, form, onChange, onSubmit, onToggleMode }) => {
       ) : null}
       {isLogin ? (
         <Input
-          label="Username"
+          label="Email"
           name="identifier"
-          placeholder="username"
+          type="email"
+          placeholder="you@example.com"
           value={form.identifier}
           onChange={onChange}
         />
       ) : (
-        <Input
-          label="Username"
-          name="username"
-          placeholder="Choose a username"
-          value={form.username}
-          onChange={onChange}
-        />
+        <>
+          <Input
+            label="Email"
+            name="email"
+            type="email"
+            placeholder="you@example.com"
+            value={form.email}
+            onChange={onChange}
+          />
+          <Input
+            label="Username"
+            name="username"
+            placeholder="Choose a username"
+            value={form.username}
+            onChange={onChange}
+          />
+        </>
       )}
       <Input
         label="Password"

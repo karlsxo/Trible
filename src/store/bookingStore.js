@@ -1,6 +1,4 @@
 import { create } from 'zustand'
-import { storage } from '../services/storage'
-import { STORAGE_KEYS } from '../utils/constants'
 import { db } from '../lib/firebase'
 import {
   onValue,
@@ -14,12 +12,10 @@ import {
 import { useDriverStore } from './driverStore'
 import { safeFirebaseKey } from '../utils/firebaseKey'
 
-const getBookings = () => storage.get(STORAGE_KEYS.bookings, [])
 const bookingsRef = () => ref(db, 'bookings')
 const driverRef = (username) => ref(db, `drivers/${safeFirebaseKey(username)}`)
 
 let bookingSyncReady = false
-let bookingSeeded = false
 
 const asDriverCard = (driver) => {
   const seats = Number(driver.availableSeats) || 0
@@ -43,33 +39,15 @@ const bookingsObjectToArray = (bookings) =>
     }))
     .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
 
-const bookingsArrayToObject = (bookings) =>
-  (Array.isArray(bookings) ? bookings : []).reduce((acc, booking) => {
-    if (!booking?.id) return acc
-    acc[String(booking.id)] = booking
-    return acc
-  }, {})
-
 export const useBookingStore = create((set, get) => ({
-  bookings: db ? [] : getBookings(),
+  bookings: [],
 
   initSync: () => {
     if (bookingSyncReady || typeof window === 'undefined' || !db) return
     bookingSyncReady = true
 
     onValue(bookingsRef(), (snapshot) => {
-      const remoteBookings = snapshot.val()
-
-      if (!remoteBookings && !bookingSeeded) {
-        const legacyBookings = getBookings()
-        if (Array.isArray(legacyBookings) && legacyBookings.length > 0) {
-          bookingSeeded = true
-          dbSet(bookingsRef(), bookingsArrayToObject(legacyBookings))
-          return
-        }
-      }
-
-      set({ bookings: bookingsObjectToArray(remoteBookings) })
+      set({ bookings: bookingsObjectToArray(snapshot.val()) })
     })
   },
 
@@ -107,8 +85,6 @@ export const useBookingStore = create((set, get) => ({
 
       nextSeats = Number(seatTransaction.snapshot.val()) || 0
       dbUpdate(driverRef(driver.username), { updatedAt: Date.now() })
-    } else {
-      driverStore.updateDriverProfile(driver.username, { availableSeats: nextSeats })
     }
 
     const booking = {
@@ -137,8 +113,6 @@ export const useBookingStore = create((set, get) => ({
 
     if (db && bookingRef) {
       await dbSet(bookingRef, nextBooking)
-    } else {
-      storage.set(STORAGE_KEYS.bookings, nextBookings)
     }
 
     return { ok: true, seatsLeft: nextSeats }
@@ -152,8 +126,6 @@ export const useBookingStore = create((set, get) => ({
 
     if (db) {
       dbUpdate(ref(db, `bookings/${id}`), { status: 'Accepted' })
-    } else {
-      storage.set(STORAGE_KEYS.bookings, nextBookings)
     }
   },
 
@@ -166,15 +138,12 @@ export const useBookingStore = create((set, get) => ({
     const driverStore = useDriverStore.getState()
     const driver = driverStore.getDriverByUsername(booking.driverUsername)
     if (driver) {
-      const nextSeats = (Number(driver.availableSeats) || 0) + (booking.seatCount || 1)
       if (db) {
         await runTransaction(
           ref(db, `drivers/${safeFirebaseKey(driver.username)}/availableSeats`),
           (currentSeats) => (Number(currentSeats) || 0) + (booking.seatCount || 1),
         )
         dbUpdate(driverRef(driver.username), { updatedAt: Date.now() })
-      } else {
-        driverStore.updateDriverProfile(driver.username, { availableSeats: nextSeats })
       }
     }
 
@@ -183,8 +152,6 @@ export const useBookingStore = create((set, get) => ({
 
     if (db) {
       remove(ref(db, `bookings/${bookingId}`))
-    } else {
-      storage.set(STORAGE_KEYS.bookings, nextBookings)
     }
     return { ok: true }
   },

@@ -1,18 +1,21 @@
 import { create } from 'zustand'
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth'
+import { get as dbGet, onValue, ref, set as dbSet } from 'firebase/database'
+import { auth, db } from '../lib/firebase'
 import { storage } from '../services/storage'
 import { STORAGE_KEYS } from '../utils/constants'
-import { safeFirebaseKey } from '../utils/firebaseKey'
-import { db } from '../lib/firebase'
-import { get as dbGet, onValue, ref, set as dbSet } from 'firebase/database'
 import { useDriverStore } from './driverStore'
 
-const getUsers = () => storage.get(STORAGE_KEYS.users, [])
 const getSession = () => storage.get(STORAGE_KEYS.session, null)
-
+const normalizeEmail = (value) => value.trim().toLowerCase()
 const normalizeUsername = (value) => value.trim().toLowerCase()
 const usersRef = () => ref(db, 'users')
-const userKey = (username) => safeFirebaseKey(normalizeUsername(username))
-const userRef = (username) => ref(db, `users/${userKey(username)}`)
+const userRef = (uid) => ref(db, `users/${uid}`)
 
 const usersObjectToArray = (users) =>
   Object.values(users || {})
@@ -23,123 +26,178 @@ const usersObjectToArray = (users) =>
     }))
     .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
 
-const usersArrayToObject = (users) =>
-  (Array.isArray(users) ? users : []).reduce((acc, user) => {
-    if (!user?.username) return acc
-    const normalizedUsername = normalizeUsername(user.username)
-    acc[safeFirebaseKey(normalizedUsername)] = {
-      ...user,
-      username: normalizedUsername,
-    }
-    return acc
-  }, {})
+const toSession = (profile) => ({
+  id: profile.id,
+  uid: profile.id,
+  role: profile.role,
+  name: profile.fullName,
+  fullName: profile.fullName,
+  username: profile.username,
+  email: profile.email,
+})
+
+const getAuthMessage = (error, fallback = 'Authentication failed.') => {
+  const code = error?.code || ''
+  if (code.includes('email-already-in-use')) return 'Email is already registered.'
+  if (code.includes('invalid-email')) return 'Enter a valid email address.'
+  if (code.includes('invalid-credential')) return 'Invalid email or password.'
+  if (code.includes('weak-password')) return 'Password must be at least 6 characters.'
+  if (code.includes('network-request-failed')) return 'Network error. Check your connection.'
+  return error?.message || fallback
+}
 
 let authSyncReady = false
-let authUsersSeeded = false
+let authUnsubscribe = null
+let usersUnsubscribe = null
 
 export const useAuthStore = create((set, get) => ({
-  users: db ? [] : getUsers(),
+  users: [],
   session: getSession(),
+  authReady: false,
+
+  fetchUsers: async () => {
+    if (!db) return []
+    const snapshot = await dbGet(usersRef())
+    const users = usersObjectToArray(snapshot.val())
+    set({ users })
+    return users
+  },
 
   initSync: () => {
-    if (authSyncReady || typeof window === 'undefined' || !db) return
+    if (authSyncReady || typeof window === 'undefined') return () => {}
     authSyncReady = true
 
-    onValue(usersRef(), (snapshot) => {
-      const remoteUsers = snapshot.val()
-
-      if (!remoteUsers && !authUsersSeeded) {
-        const legacyUsers = getUsers()
-        if (Array.isArray(legacyUsers) && legacyUsers.length > 0) {
-          authUsersSeeded = true
-          dbSet(usersRef(), usersArrayToObject(legacyUsers))
-          return
-        }
-      }
-
-      set({ users: usersObjectToArray(remoteUsers), session: getSession() })
-    })
-  },
-
-  login: async (identifier, password, role) => {
-    const username = normalizeUsername(identifier)
-    const sanitizedPassword = password.trim()
-    const users = db
-      ? usersObjectToArray((await dbGet(usersRef())).val())
-      : get().users
-
-    const user = users.find(
-      (u) =>
-        u.role === role &&
-        u.username === username &&
-        u.password === sanitizedPassword,
-    )
-
-    if (!user) return { ok: false, message: 'Invalid credentials.' }
-
-    const session = {
-      id: user.id,
-      role: user.role,
-      name: user.fullName,
-      username: user.username,
+    if (!auth || !db) {
+      storage.remove(STORAGE_KEYS.session)
+      set({ users: [], session: null, authReady: true })
+      return () => {}
     }
 
-    storage.set(STORAGE_KEYS.session, session)
-    set({ users, session })
-    return { ok: true, role: user.role }
+    usersUnsubscribe = onValue(usersRef(), (snapshot) => {
+      set({ users: usersObjectToArray(snapshot.val()) })
+    })
+
+    authUnsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        storage.remove(STORAGE_KEYS.session)
+        set({ session: null, authReady: true })
+        return
+      }
+
+      const profileSnapshot = await dbGet(userRef(firebaseUser.uid))
+      const profile = profileSnapshot.val()
+
+      if (!profile) {
+        storage.remove(STORAGE_KEYS.session)
+        set({ session: null, authReady: true })
+        return
+      }
+
+      const session = toSession(profile)
+      storage.set(STORAGE_KEYS.session, session)
+      set({ session, authReady: true })
+    })
+
+    return () => {
+      authUnsubscribe?.()
+      usersUnsubscribe?.()
+      authUnsubscribe = null
+      usersUnsubscribe = null
+      authSyncReady = false
+    }
   },
 
-  signUp: async (role, payload) => {
-    const username = normalizeUsername(payload.username)
-    const users = db
-      ? usersObjectToArray((await dbGet(usersRef())).val())
-      : get().users
+  signupUser: async (role, payload) => {
+    if (!auth || !db) {
+      return { ok: false, message: 'Firebase Authentication is not configured.' }
+    }
 
-    if (users.some((u) => u.username === username)) {
+    const email = normalizeEmail(payload.email || '')
+    const username = normalizeUsername(payload.username || '')
+
+    if (!email || !username || !payload.password?.trim()) {
+      return { ok: false, message: 'Email, username, and password are required.' }
+    }
+
+    const users = await get().fetchUsers()
+    if (users.some((user) => user.username === username)) {
       return { ok: false, message: 'Username is already taken.' }
     }
 
-    const newUser = {
-      id: username,
-      role,
-      fullName: payload.fullName.trim(),
-      username,
-      password: payload.password.trim(),
-      driverNumber: role === 'driver' ? (payload.driverNumber || '').trim() : '',
-      createdAt: Date.now(),
+    try {
+      const credential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        payload.password.trim(),
+      )
+      const now = Date.now()
+      const profile = {
+        id: credential.user.uid,
+        username,
+        email,
+        fullName: payload.fullName.trim(),
+        role,
+        driverNumber: role === 'driver' ? (payload.driverNumber || '').trim() : '',
+        createdAt: now,
+      }
+
+      await dbSet(userRef(credential.user.uid), profile)
+
+      if (role === 'driver') {
+        useDriverStore.getState().registerDriverProfile({
+          id: profile.id,
+          fullName: profile.fullName,
+          username: profile.username,
+          driverNumber: profile.driverNumber,
+        })
+      }
+
+      const session = toSession(profile)
+      storage.set(STORAGE_KEYS.session, session)
+      set({ session, users: [profile, ...users], authReady: true })
+      return { ok: true, role }
+    } catch (error) {
+      return { ok: false, message: getAuthMessage(error, 'Unable to create account.') }
     }
-
-    const nextUsers = [newUser, ...users]
-
-    if (db) {
-      await dbSet(userRef(username), newUser)
-    } else {
-      storage.set(STORAGE_KEYS.users, nextUsers)
-    }
-
-    if (role === 'driver') {
-      useDriverStore.getState().registerDriverProfile({
-        id: newUser.id,
-        fullName: newUser.fullName,
-        username: newUser.username,
-        driverNumber: newUser.driverNumber,
-      })
-    }
-
-    const session = {
-      id: newUser.id,
-      role,
-      name: newUser.fullName,
-      username: newUser.username,
-    }
-
-    storage.set(STORAGE_KEYS.session, session)
-    set({ users: nextUsers, session })
-    return { ok: true, role }
   },
 
-  logout: () => {
+  loginUser: async (email, password, role) => {
+    if (!auth || !db) {
+      return { ok: false, message: 'Firebase Authentication is not configured.' }
+    }
+
+    try {
+      const credential = await signInWithEmailAndPassword(
+        auth,
+        normalizeEmail(email || ''),
+        password.trim(),
+      )
+      const profileSnapshot = await dbGet(userRef(credential.user.uid))
+      const profile = profileSnapshot.val()
+
+      if (!profile || profile.role !== role) {
+        await signOut(auth)
+        return { ok: false, message: `This account is not registered as a ${role}.` }
+      }
+
+      const session = toSession(profile)
+      storage.set(STORAGE_KEYS.session, session)
+      set({ session, authReady: true })
+      return { ok: true, role: profile.role }
+    } catch (error) {
+      return { ok: false, message: getAuthMessage(error, 'Invalid email or password.') }
+    }
+  },
+
+  logoutUser: async () => {
     storage.remove(STORAGE_KEYS.session)
     set({ session: null })
+    if (auth) {
+      await signOut(auth)
+    }
   },
+
+  login: (...args) => get().loginUser(...args),
+  signUp: (...args) => get().signupUser(...args),
+  logout: () => get().logoutUser(),
 }))

@@ -5,13 +5,11 @@ import { safeFirebaseKey } from '../utils/firebaseKey'
 import { db } from '../lib/firebase'
 import { onValue, push, ref, set as dbSet, update as dbUpdate } from 'firebase/database'
 
-const getConversations = () => storage.get(STORAGE_KEYS.chat, [])
 const getActiveId = () => storage.get(STORAGE_KEYS.activeChat, null)
 const conversationsRef = () => ref(db, 'conversations')
 const messagesRef = () => ref(db, 'messages')
 
 let chatSyncReady = false
-let chatSeeded = false
 let remoteConversationMeta = []
 let remoteMessagesByConversation = {}
 
@@ -61,22 +59,8 @@ const mergeConversationMessages = () =>
     })
     .sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))
 
-const conversationsArrayToObject = (conversations) =>
-  (Array.isArray(conversations) ? conversations : []).reduce((acc, conversation) => {
-    if (!conversation?.id) return acc
-    acc[makeConversationKey(conversation.id)] = {
-      ...conversation,
-      messages: (conversation.messages || []).reduce((messageAcc, message) => {
-        if (!message?.id) return messageAcc
-        messageAcc[String(message.id)] = message
-        return messageAcc
-      }, {}),
-    }
-    return acc
-  }, {})
-
 export const useChatStore = create((set, get) => ({
-  conversations: db ? [] : getConversations(),
+  conversations: [],
   messagesByConversation: {},
   activeId: getActiveId(),
 
@@ -85,33 +69,7 @@ export const useChatStore = create((set, get) => ({
     chatSyncReady = true
 
     onValue(conversationsRef(), (snapshot) => {
-      const remoteConversations = snapshot.val()
-
-      if (!remoteConversations && !chatSeeded) {
-        const legacyConversations = getConversations()
-        if (Array.isArray(legacyConversations) && legacyConversations.length > 0) {
-          chatSeeded = true
-          dbSet(conversationsRef(), conversationsArrayToObject(legacyConversations))
-          dbSet(
-            messagesRef(),
-            legacyConversations.reduce((acc, conversation) => {
-              if (!conversation?.id) return acc
-              acc[makeConversationKey(conversation.id)] = (conversation.messages || []).reduce(
-                (messageAcc, message) => {
-                  if (!message?.id) return messageAcc
-                  messageAcc[String(message.id)] = message
-                  return messageAcc
-                },
-                {},
-              )
-              return acc
-            }, {}),
-          )
-          return
-        }
-      }
-
-      remoteConversationMeta = conversationsObjectToArray(remoteConversations)
+      remoteConversationMeta = conversationsObjectToArray(snapshot.val())
       set({
         conversations: mergeConversationMessages(),
         messagesByConversation: remoteMessagesByConversation,
@@ -164,8 +122,6 @@ export const useChatStore = create((set, get) => ({
         ...nextConversation,
         messages: null,
       })
-    } else {
-      storage.set(STORAGE_KEYS.chat, next)
     }
 
     return id
@@ -183,9 +139,6 @@ export const useChatStore = create((set, get) => ({
       }
     })
 
-    if (!db) {
-      storage.set(STORAGE_KEYS.chat, next)
-    }
     storage.set(STORAGE_KEYS.activeChat, id)
     set({ conversations: next, activeId: id })
 
@@ -234,17 +187,21 @@ export const useChatStore = create((set, get) => ({
       const conversation = next.find((conv) => conv.id === conversationId)
       const message = conversation?.messages?.[conversation.messages.length - 1]
       if (conversation && message) {
+        const key = makeConversationKey(conversationId)
         const messageRef = push(
-          ref(db, `messages/${makeConversationKey(conversationId)}`),
+          ref(db, `messages/${key}`),
         )
-        dbSet(messageRef, message)
-        dbUpdate(ref(db, `conversations/${makeConversationKey(conversationId)}`), {
+        const messageId = messageRef.key
+        const nextMessage = { ...message, id: messageId }
+        dbSet(messageRef, nextMessage)
+        dbSet(ref(db, `conversations/${key}/messages/${messageId}`), nextMessage)
+        dbUpdate(ref(db, `conversations/${key}`), {
           unreadBy: conversation.unreadBy || {},
           updatedAt: conversation.updatedAt || Date.now(),
         })
       }
     } else {
-      storage.set(STORAGE_KEYS.chat, next)
+      return
     }
   },
 }))

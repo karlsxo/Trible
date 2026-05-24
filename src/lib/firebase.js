@@ -1,4 +1,5 @@
 import { getApps, initializeApp } from 'firebase/app'
+import { getAuth } from 'firebase/auth'
 import { getDatabase } from 'firebase/database'
 
 const firebaseConfig = {
@@ -25,4 +26,5 @@ if (!hasConfig && typeof window !== 'undefined') {
 }
 
 export const firebaseReady = Boolean(app)
+export const auth = app ? getAuth(app) : null
 export const db = app ? getDatabase(app) : null

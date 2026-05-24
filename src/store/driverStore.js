@@ -1,15 +1,13 @@
 import { create } from 'zustand'
-import { storage } from '../services/storage'
-import { STORAGE_KEYS } from '../utils/constants'
 import { safeFirebaseKey } from '../utils/firebaseKey'
 import { db } from '../lib/firebase'
 import { onValue, ref, set as dbSet, update as dbUpdate } from 'firebase/database'
 
-const getDrivers = () => storage.get(STORAGE_KEYS.drivers, [])
-
 const driversRef = () => ref(db, 'drivers')
+const onlineStatusRef = () => ref(db, 'onlineStatus')
 const driverKey = (username) => safeFirebaseKey(username)
 const driverRef = (username) => ref(db, `drivers/${driverKey(username)}`)
+const driverStatusRef = (username) => ref(db, `onlineStatus/${driverKey(username)}`)
 
 const normalizeDriver = (driver) => ({
   ...driver,
@@ -53,18 +51,20 @@ const writeDriverRecord = (username, partial, currentDriver) => {
 
   if (db) {
     dbUpdate(driverRef(username), toDriverRecord(nextDriver))
-  } else {
-    const fallbackDrivers = getDrivers().map((driver) =>
-      driver.username === username ? nextDriver : driver,
-    )
-    storage.set(STORAGE_KEYS.drivers, fallbackDrivers)
+    dbSet(driverStatusRef(username), {
+      id: nextDriver.id,
+      username: nextDriver.username,
+      isOnline: Boolean(nextDriver.online),
+      updatedAt: nextDriver.updatedAt,
+    })
   }
 
   return nextDriver
 }
 
 export const useDriverStore = create((set, get) => ({
-  drivers: db ? [] : getDrivers(),
+  drivers: [],
+  onlineStatus: {},
 
   subscribeToDrivers: () => {
     if (typeof window === 'undefined' || !db) return () => {}
@@ -74,12 +74,16 @@ export const useDriverStore = create((set, get) => ({
     }
 
     driverSyncReady = true
-    const unsubscribe = onValue(driversRef(), (snapshot) => {
+    const unsubscribeDrivers = onValue(driversRef(), (snapshot) => {
       set({ drivers: driversObjectToArray(snapshot.val()) })
+    })
+    const unsubscribeOnlineStatus = onValue(onlineStatusRef(), (snapshot) => {
+      set({ onlineStatus: snapshot.val() || {} })
     })
 
     driverUnsubscribe = () => {
-      unsubscribe()
+      unsubscribeDrivers()
+      unsubscribeOnlineStatus()
       driverUnsubscribe = null
       driverSyncReady = false
     }
@@ -111,8 +115,12 @@ export const useDriverStore = create((set, get) => ({
 
     if (db) {
       dbSet(driverRef(username), toDriverRecord(nextDriver))
-    } else {
-      storage.set(STORAGE_KEYS.drivers, next)
+      dbSet(driverStatusRef(username), {
+        id,
+        username,
+        isOnline: Boolean(nextDriver.online),
+        updatedAt: nextDriver.updatedAt,
+      })
     }
   },
 

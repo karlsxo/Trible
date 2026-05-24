@@ -7,10 +7,10 @@ import { useAuth } from '../context/AuthContext'
 
 const Welcome = () => {
   const navigate = useNavigate()
-  const { session } = useAuth()
+  const { authReady, session } = useAuth()
 
   // Already logged in — skip welcome
-  if (session) {
+  if (authReady && session) {
     const target =
       session.role === 'driver' ? '/dashboard/driver' : '/dashboard/student'
     return <Navigate to={target} replace />

@@ -7,7 +7,11 @@ const roleRedirect = {
 }
 
 const ProtectedRoute = ({ children, role }) => {
-  const { session } = useAuth()
+  const { session, authReady } = useAuth()
+
+  if (!authReady) {
+    return null
+  }
 
   if (!session) {
     return <Navigate to="/welcome" replace />
