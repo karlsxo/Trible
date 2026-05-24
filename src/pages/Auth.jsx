@@ -49,17 +49,25 @@ const Auth = () => {
         return
       }
 
-      const result = await login(form.identifier, form.password, normalizedRole)
-      if (!result.ok) {
-        setToast({ title: 'Login failed', message: result.message })
+      try {
+        const result = await login(form.identifier, form.password, normalizedRole)
+        if (!result.ok) {
+          setToast({ title: 'Login failed', message: result.message })
+          return
+        }
+        navigate(
+          result.role === 'driver'
+            ? '/dashboard/driver'
+            : '/dashboard/student',
+        )
+        return
+      } catch (error) {
+        setToast({
+          title: 'Login failed',
+          message: error?.message || 'Unexpected login error.',
+        })
         return
       }
-      navigate(
-        result.role === 'driver'
-          ? '/dashboard/driver'
-          : '/dashboard/student',
-      )
-      return
     }
 
     if (!form.email?.trim() || !form.username?.trim() || !form.password?.trim()) {
@@ -67,24 +75,31 @@ const Auth = () => {
       return
     }
 
-    const result = await signUp(normalizedRole, {
-      fullName: form.fullName,
-      driverNumber: form.driverNumber,
-      email: form.email,
-      username: form.username,
-      password: form.password,
-    })
+    try {
+      const result = await signUp(normalizedRole, {
+        fullName: form.fullName,
+        driverNumber: form.driverNumber,
+        email: form.email,
+        username: form.username,
+        password: form.password,
+      })
 
-    if (!result.ok) {
-      setToast({ title: 'Sign up failed', message: result.message })
-      return
+      if (!result.ok) {
+        setToast({ title: 'Sign up failed', message: result.message })
+        return
+      }
+
+      navigate(
+        normalizedRole === 'driver'
+          ? '/dashboard/driver'
+          : '/dashboard/student',
+      )
+    } catch (error) {
+      setToast({
+        title: 'Sign up failed',
+        message: error?.message || 'Unexpected sign up error.',
+      })
     }
-
-    navigate(
-      normalizedRole === 'driver'
-        ? '/dashboard/driver'
-        : '/dashboard/student',
-    )
   }
 
   return (

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
@@ -125,11 +126,6 @@ export const useAuthStore = create((set, get) => ({
       return { ok: false, message: 'Email, username, and password are required.' }
     }
 
-    const users = await get().fetchUsers()
-    if (users.some((user) => user.username === username)) {
-      return { ok: false, message: 'Username is already taken.' }
-    }
-
     try {
       const credential = await createUserWithEmailAndPassword(
         auth,
@@ -147,21 +143,34 @@ export const useAuthStore = create((set, get) => ({
         createdAt: now,
       }
 
-      await dbSet(userRef(credential.user.uid), profile)
+      try {
+        const users = await get().fetchUsers()
+        if (users.some((user) => user.username === username)) {
+          await deleteUser(credential.user)
+          await signOut(auth)
+          return { ok: false, message: 'Username is already taken.' }
+        }
 
-      if (role === 'driver') {
-        useDriverStore.getState().registerDriverProfile({
-          id: profile.id,
-          fullName: profile.fullName,
-          username: profile.username,
-          driverNumber: profile.driverNumber,
-        })
+        await dbSet(userRef(credential.user.uid), profile)
+
+        if (role === 'driver') {
+          useDriverStore.getState().registerDriverProfile({
+            id: profile.id,
+            fullName: profile.fullName,
+            username: profile.username,
+            driverNumber: profile.driverNumber,
+          })
+        }
+
+        const session = toSession(profile)
+        storage.set(STORAGE_KEYS.session, session)
+        set({ session, users: [profile, ...users], authReady: true })
+        return { ok: true, role }
+      } catch (error) {
+        await deleteUser(credential.user).catch(() => {})
+        await signOut(auth).catch(() => {})
+        throw error
       }
-
-      const session = toSession(profile)
-      storage.set(STORAGE_KEYS.session, session)
-      set({ session, users: [profile, ...users], authReady: true })
-      return { ok: true, role }
     } catch (error) {
       return { ok: false, message: getAuthMessage(error, 'Unable to create account.') }
     }
