@@ -44,6 +44,11 @@ const Auth = () => {
   const handleSubmit = async (event) => {
     event.preventDefault()
     if (mode === 'login') {
+      if (!form.identifier?.trim() || !form.password?.trim()) {
+        setToast({ title: 'Login failed', message: 'Email and password are required.' })
+        return
+      }
+
       const result = await login(form.identifier, form.password, normalizedRole)
       if (!result.ok) {
         setToast({ title: 'Login failed', message: result.message })
@@ -54,6 +59,11 @@ const Auth = () => {
           ? '/dashboard/driver'
           : '/dashboard/student',
       )
+      return
+    }
+
+    if (!form.email?.trim() || !form.username?.trim() || !form.password?.trim()) {
+      setToast({ title: 'Sign up failed', message: 'Email, username, and password are required.' })
       return
     }
 
