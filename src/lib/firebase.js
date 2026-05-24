@@ -23,7 +23,7 @@ const envDebugCheck = {
 }
 
 if (typeof window !== 'undefined') {
-  console.log('Firebase ENV Check', envDebugCheck)
+  console.log('TRIBLE Firebase ENV Check', envDebugCheck)
 }
 
 const firebaseConfig = {
@@ -40,6 +40,18 @@ const firebaseConfig = {
     'VITTE_FIREBASE_MESSAGING_SENDER_ID',
   ),
   appId: getEnv('VITE_FIREBASE_APP_ID', 'VITTE_FIREBASE_APP_ID'),
+}
+
+if (typeof window !== 'undefined') {
+  console.log('TRIBLE Firebase config snapshot', {
+    authDomain: firebaseConfig.authDomain,
+    projectId: firebaseConfig.projectId,
+    databaseURL: firebaseConfig.databaseURL,
+    storageBucket: firebaseConfig.storageBucket,
+    messagingSenderId: firebaseConfig.messagingSenderId,
+    apiKeyPresent: Boolean(firebaseConfig.apiKey),
+    appIdPresent: Boolean(firebaseConfig.appId),
+  })
 }
 
 const requiredEnvKeys = [

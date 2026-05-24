@@ -39,6 +39,12 @@ const toSession = (profile) => ({
 
 const getAuthMessage = (error, fallback = 'Authentication failed.') => {
   const code = error?.code || ''
+  if (code.includes('configuration-not-found')) {
+    return 'Enable Email/Password in Firebase Console → Authentication → Sign-in method, then redeploy with the correct Firebase project settings.'
+  }
+  if (code.includes('unauthorized-domain')) {
+    return 'Add this site to Firebase Console → Authentication → Settings → Authorized domains.'
+  }
   if (code.includes('email-already-in-use')) return 'Email is already registered.'
   if (code.includes('invalid-email')) return 'Enter a valid email address.'
   if (code.includes('invalid-credential')) return 'Invalid email or password.'
@@ -172,6 +178,9 @@ export const useAuthStore = create((set, get) => ({
         throw error
       }
     } catch (error) {
+      console.error('FULL SIGNUP ERROR:', error)
+      console.error('ERROR CODE:', error?.code)
+      console.error('ERROR MESSAGE:', error?.message)
       return { ok: false, message: getAuthMessage(error, 'Unable to create account.') }
     }
   },
@@ -200,6 +209,9 @@ export const useAuthStore = create((set, get) => ({
       set({ session, authReady: true })
       return { ok: true, role: profile.role }
     } catch (error) {
+      console.error('FULL LOGIN ERROR:', error)
+      console.error('ERROR CODE:', error?.code)
+      console.error('ERROR MESSAGE:', error?.message)
       return { ok: false, message: getAuthMessage(error, 'Invalid email or password.') }
     }
   },
