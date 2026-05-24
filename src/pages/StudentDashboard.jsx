@@ -26,8 +26,8 @@ const StudentDashboard = () => {
   )
   const activeTerminals = new Set(tricycles.map((t) => t.terminal)).size
 
-  const handleBook = (data) => {
-    const result = bookSeat({
+  const handleBook = async (data) => {
+    const result = await bookSeat({
       ...data,
       studentName: session?.name || 'Student Rider',
       studentUsername: session?.username || '',
@@ -57,8 +57,8 @@ const StudentDashboard = () => {
     navigate(`/chat?conversation=${encodeURIComponent(conversationId)}`)
   }
 
-  const handleCancelBooking = (bookingId) => {
-    const result = cancelBooking(bookingId, session?.username)
+  const handleCancelBooking = async (bookingId) => {
+    const result = await cancelBooking(bookingId, session?.username)
     if (!result?.ok) {
       setToast({ title: 'Unable to cancel', message: result?.message || 'Try again.' })
       return

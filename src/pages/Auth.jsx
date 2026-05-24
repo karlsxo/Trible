@@ -40,10 +40,10 @@ const Auth = () => {
     setForm((prev) => ({ ...prev, [event.target.name]: event.target.value }))
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
     if (mode === 'login') {
-      const result = login(form.identifier, form.password, normalizedRole)
+      const result = await login(form.identifier, form.password, normalizedRole)
       if (!result.ok) {
         setToast({ title: 'Login failed', message: result.message })
         return
@@ -56,7 +56,7 @@ const Auth = () => {
       return
     }
 
-    const result = signUp(normalizedRole, {
+    const result = await signUp(normalizedRole, {
       fullName: form.fullName,
       driverNumber: form.driverNumber,
       username: form.username,

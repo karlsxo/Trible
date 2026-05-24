@@ -3,7 +3,7 @@ import { storage } from '../services/storage'
 import { STORAGE_KEYS } from '../utils/constants'
 import { safeFirebaseKey } from '../utils/firebaseKey'
 import { db } from '../lib/firebase'
-import { onValue, ref, set as dbSet } from 'firebase/database'
+import { get as dbGet, onValue, ref, set as dbSet } from 'firebase/database'
 import { useDriverStore } from './driverStore'
 
 const getUsers = () => storage.get(STORAGE_KEYS.users, [])
@@ -11,6 +11,8 @@ const getSession = () => storage.get(STORAGE_KEYS.session, null)
 
 const normalizeUsername = (value) => value.trim().toLowerCase()
 const usersRef = () => ref(db, 'users')
+const userKey = (username) => safeFirebaseKey(normalizeUsername(username))
+const userRef = (username) => ref(db, `users/${userKey(username)}`)
 
 const usersObjectToArray = (users) =>
   Object.values(users || {})
@@ -36,7 +38,7 @@ let authSyncReady = false
 let authUsersSeeded = false
 
 export const useAuthStore = create((set, get) => ({
-  users: getUsers(),
+  users: db ? [] : getUsers(),
   session: getSession(),
 
   initSync: () => {
@@ -59,11 +61,14 @@ export const useAuthStore = create((set, get) => ({
     })
   },
 
-  login: (identifier, password, role) => {
+  login: async (identifier, password, role) => {
     const username = normalizeUsername(identifier)
     const sanitizedPassword = password.trim()
+    const users = db
+      ? usersObjectToArray((await dbGet(usersRef())).val())
+      : get().users
 
-    const user = get().users.find(
+    const user = users.find(
       (u) =>
         u.role === role &&
         u.username === username &&
@@ -80,20 +85,22 @@ export const useAuthStore = create((set, get) => ({
     }
 
     storage.set(STORAGE_KEYS.session, session)
-    set({ session })
+    set({ users, session })
     return { ok: true, role: user.role }
   },
 
-  signUp: (role, payload) => {
-    const users = get().users
+  signUp: async (role, payload) => {
     const username = normalizeUsername(payload.username)
+    const users = db
+      ? usersObjectToArray((await dbGet(usersRef())).val())
+      : get().users
 
     if (users.some((u) => u.username === username)) {
       return { ok: false, message: 'Username is already taken.' }
     }
 
     const newUser = {
-      id: Date.now(),
+      id: username,
       role,
       fullName: payload.fullName.trim(),
       username,
@@ -105,7 +112,7 @@ export const useAuthStore = create((set, get) => ({
     const nextUsers = [newUser, ...users]
 
     if (db) {
-      dbSet(usersRef(), usersArrayToObject(nextUsers))
+      await dbSet(userRef(username), newUser)
     } else {
       storage.set(STORAGE_KEYS.users, nextUsers)
     }

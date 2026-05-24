@@ -3,11 +3,13 @@ import { storage } from '../services/storage'
 import { STORAGE_KEYS } from '../utils/constants'
 import { safeFirebaseKey } from '../utils/firebaseKey'
 import { db } from '../lib/firebase'
-import { onValue, ref, set as dbSet } from 'firebase/database'
+import { onValue, ref, set as dbSet, update as dbUpdate } from 'firebase/database'
 
 const getDrivers = () => storage.get(STORAGE_KEYS.drivers, [])
 
 const driversRef = () => ref(db, 'drivers')
+const driverKey = (username) => safeFirebaseKey(username)
+const driverRef = (username) => ref(db, `drivers/${driverKey(username)}`)
 
 const normalizeDriver = (driver) => ({
   ...driver,
@@ -50,7 +52,7 @@ const writeDriverRecord = (username, partial, currentDriver) => {
   })
 
   if (db) {
-    dbSet(ref(db, `drivers/${safeFirebaseKey(username)}`), toDriverRecord(nextDriver))
+    dbUpdate(driverRef(username), toDriverRecord(nextDriver))
   } else {
     const fallbackDrivers = getDrivers().map((driver) =>
       driver.username === username ? nextDriver : driver,
@@ -108,7 +110,7 @@ export const useDriverStore = create((set, get) => ({
     set({ drivers: next })
 
     if (db) {
-      dbSet(ref(db, `drivers/${safeFirebaseKey(username)}`), toDriverRecord(nextDriver))
+      dbSet(driverRef(username), toDriverRecord(nextDriver))
     } else {
       storage.set(STORAGE_KEYS.drivers, next)
     }
@@ -123,8 +125,6 @@ export const useDriverStore = create((set, get) => ({
       driver.username === username ? nextDriver : driver,
     )
     set({ drivers: next })
-
-    storage.set(STORAGE_KEYS.drivers, next)
   },
 
   updateDriverRoute: (username, route) => {

@@ -8,9 +8,12 @@ import { onValue, push, ref, set as dbSet, update as dbUpdate } from 'firebase/d
 const getConversations = () => storage.get(STORAGE_KEYS.chat, [])
 const getActiveId = () => storage.get(STORAGE_KEYS.activeChat, null)
 const conversationsRef = () => ref(db, 'conversations')
+const messagesRef = () => ref(db, 'messages')
 
 let chatSyncReady = false
 let chatSeeded = false
+let remoteConversationMeta = []
+let remoteMessagesByConversation = {}
 
 const getTimestamp = () =>
   new Date().toLocaleTimeString('en-US', {
@@ -35,6 +38,29 @@ const conversationsObjectToArray = (conversations) =>
     }))
     .sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))
 
+const messagesObjectToMap = (messages) =>
+  Object.entries(messages || {}).reduce((acc, [conversationKey, conversationMessages]) => {
+    acc[conversationKey] = Object.entries(conversationMessages || {})
+      .map(([messageId, message]) => ({
+        ...message,
+        id: message.id || messageId,
+      }))
+      .sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0))
+    return acc
+  }, {})
+
+const mergeConversationMessages = () =>
+  remoteConversationMeta
+    .map((conversation) => {
+      const key = makeConversationKey(conversation.id)
+      const topLevelMessages = remoteMessagesByConversation[key]
+      return {
+        ...conversation,
+        messages: topLevelMessages || conversation.messages || [],
+      }
+    })
+    .sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))
+
 const conversationsArrayToObject = (conversations) =>
   (Array.isArray(conversations) ? conversations : []).reduce((acc, conversation) => {
     if (!conversation?.id) return acc
@@ -50,7 +76,8 @@ const conversationsArrayToObject = (conversations) =>
   }, {})
 
 export const useChatStore = create((set, get) => ({
-  conversations: getConversations(),
+  conversations: db ? [] : getConversations(),
+  messagesByConversation: {},
   activeId: getActiveId(),
 
   initSync: () => {
@@ -65,11 +92,40 @@ export const useChatStore = create((set, get) => ({
         if (Array.isArray(legacyConversations) && legacyConversations.length > 0) {
           chatSeeded = true
           dbSet(conversationsRef(), conversationsArrayToObject(legacyConversations))
+          dbSet(
+            messagesRef(),
+            legacyConversations.reduce((acc, conversation) => {
+              if (!conversation?.id) return acc
+              acc[makeConversationKey(conversation.id)] = (conversation.messages || []).reduce(
+                (messageAcc, message) => {
+                  if (!message?.id) return messageAcc
+                  messageAcc[String(message.id)] = message
+                  return messageAcc
+                },
+                {},
+              )
+              return acc
+            }, {}),
+          )
           return
         }
       }
 
-      set({ conversations: conversationsObjectToArray(remoteConversations), activeId: getActiveId() })
+      remoteConversationMeta = conversationsObjectToArray(remoteConversations)
+      set({
+        conversations: mergeConversationMessages(),
+        messagesByConversation: remoteMessagesByConversation,
+        activeId: getActiveId(),
+      })
+    })
+
+    onValue(messagesRef(), (snapshot) => {
+      remoteMessagesByConversation = messagesObjectToMap(snapshot.val())
+      set({
+        conversations: mergeConversationMessages(),
+        messagesByConversation: remoteMessagesByConversation,
+        activeId: getActiveId(),
+      })
     })
   },
 
@@ -106,7 +162,7 @@ export const useChatStore = create((set, get) => ({
     if (db) {
       dbSet(ref(db, `conversations/${makeConversationKey(id)}`), {
         ...nextConversation,
-        messages: {},
+        messages: null,
       })
     } else {
       storage.set(STORAGE_KEYS.chat, next)
@@ -179,7 +235,7 @@ export const useChatStore = create((set, get) => ({
       const message = conversation?.messages?.[conversation.messages.length - 1]
       if (conversation && message) {
         const messageRef = push(
-          ref(db, `conversations/${makeConversationKey(conversationId)}/messages`),
+          ref(db, `messages/${makeConversationKey(conversationId)}`),
         )
         dbSet(messageRef, message)
         dbUpdate(ref(db, `conversations/${makeConversationKey(conversationId)}`), {

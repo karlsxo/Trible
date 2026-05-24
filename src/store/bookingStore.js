@@ -2,11 +2,21 @@ import { create } from 'zustand'
 import { storage } from '../services/storage'
 import { STORAGE_KEYS } from '../utils/constants'
 import { db } from '../lib/firebase'
-import { onValue, push, ref, remove, set as dbSet, update as dbUpdate } from 'firebase/database'
+import {
+  onValue,
+  push,
+  ref,
+  remove,
+  runTransaction,
+  set as dbSet,
+  update as dbUpdate,
+} from 'firebase/database'
 import { useDriverStore } from './driverStore'
+import { safeFirebaseKey } from '../utils/firebaseKey'
 
 const getBookings = () => storage.get(STORAGE_KEYS.bookings, [])
 const bookingsRef = () => ref(db, 'bookings')
+const driverRef = (username) => ref(db, `drivers/${safeFirebaseKey(username)}`)
 
 let bookingSyncReady = false
 let bookingSeeded = false
@@ -41,7 +51,7 @@ const bookingsArrayToObject = (bookings) =>
   }, {})
 
 export const useBookingStore = create((set, get) => ({
-  bookings: getBookings(),
+  bookings: db ? [] : getBookings(),
 
   initSync: () => {
     if (bookingSyncReady || typeof window === 'undefined' || !db) return
@@ -70,7 +80,7 @@ export const useBookingStore = create((set, get) => ({
 
   getTotalSeats: () => get().getTricycles().reduce((sum, item) => sum + item.seats, 0),
 
-  bookSeat: (data) => {
+  bookSeat: async (data) => {
     const driverStore = useDriverStore.getState()
     const driver = driverStore.getDriverByUsername(data.driverUsername)
 
@@ -79,8 +89,27 @@ export const useBookingStore = create((set, get) => ({
       return { ok: false, message: 'Driver has no available seats.' }
     }
 
-    const nextSeats = (Number(driver.availableSeats) || 0) - 1
-    driverStore.updateDriverProfile(driver.username, { availableSeats: nextSeats })
+    let nextSeats = (Number(driver.availableSeats) || 0) - 1
+
+    if (db) {
+      const seatTransaction = await runTransaction(
+        ref(db, `drivers/${safeFirebaseKey(driver.username)}/availableSeats`),
+        (currentSeats) => {
+          const seats = Number(currentSeats) || 0
+          if (seats <= 0) return
+          return seats - 1
+        },
+      )
+
+      if (!seatTransaction.committed) {
+        return { ok: false, message: 'Driver has no available seats.' }
+      }
+
+      nextSeats = Number(seatTransaction.snapshot.val()) || 0
+      dbUpdate(driverRef(driver.username), { updatedAt: Date.now() })
+    } else {
+      driverStore.updateDriverProfile(driver.username, { availableSeats: nextSeats })
+    }
 
     const booking = {
       id: Date.now(),
@@ -107,7 +136,7 @@ export const useBookingStore = create((set, get) => ({
     set({ bookings: nextBookings })
 
     if (db && bookingRef) {
-      dbSet(bookingRef, nextBooking)
+      await dbSet(bookingRef, nextBooking)
     } else {
       storage.set(STORAGE_KEYS.bookings, nextBookings)
     }
@@ -128,7 +157,7 @@ export const useBookingStore = create((set, get) => ({
     }
   },
 
-  cancelBooking: (bookingId, studentUsername) => {
+  cancelBooking: async (bookingId, studentUsername) => {
     const booking = get().bookings.find((b) => b.id === bookingId)
     if (!booking || booking.studentUsername !== studentUsername) {
       return { ok: false, message: 'Booking not found.' }
@@ -138,7 +167,15 @@ export const useBookingStore = create((set, get) => ({
     const driver = driverStore.getDriverByUsername(booking.driverUsername)
     if (driver) {
       const nextSeats = (Number(driver.availableSeats) || 0) + (booking.seatCount || 1)
-      driverStore.updateDriverProfile(driver.username, { availableSeats: nextSeats })
+      if (db) {
+        await runTransaction(
+          ref(db, `drivers/${safeFirebaseKey(driver.username)}/availableSeats`),
+          (currentSeats) => (Number(currentSeats) || 0) + (booking.seatCount || 1),
+        )
+        dbUpdate(driverRef(driver.username), { updatedAt: Date.now() })
+      } else {
+        driverStore.updateDriverProfile(driver.username, { availableSeats: nextSeats })
+      }
     }
 
     const nextBookings = get().bookings.filter((b) => b.id !== bookingId)

@@ -18,6 +18,10 @@
       ".read": true,
       ".write": true
     },
+    "messages": {
+      ".read": true,
+      ".write": true
+    },
     "students": {
       ".read": true,
       ".write": true
