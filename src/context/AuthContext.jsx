@@ -17,7 +17,7 @@ export const AuthProvider = ({ children }) => {
   const initSync = useAuthStore((state) => state.initSync)
 
   useEffect(() => {
-    initSync()
+    return initSync()
   }, [initSync])
 
   const value = useMemo(

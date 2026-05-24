@@ -1,11 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo } from 'react'
+import { useAuth } from './AuthContext'
 import { useBookingStore } from '../store/bookingStore'
 import { useDriverStore } from '../store/driverStore'
 
 const BookingContext = createContext(null)
 
 export const BookingProvider = ({ children }) => {
+  const { authReady, session } = useAuth()
   const bookings = useBookingStore((state) => state.bookings)
   const initSync = useBookingStore((state) => state.initSync)
   const getTotalSeats = useBookingStore((state) => state.getTotalSeats)
@@ -25,12 +27,18 @@ export const BookingProvider = ({ children }) => {
   const initDriverSync = useDriverStore((state) => state.initSync)
 
   useEffect(() => {
-    initSync()
-  }, [initSync])
+    if (!authReady || !session) return undefined
+    return initSync()
+  }, [authReady, session, initSync])
   useEffect(() => {
-    initDriverSync()
-    return subscribeToDrivers()
-  }, [initDriverSync, subscribeToDrivers])
+    if (!authReady || !session) return undefined
+    const unsubscribe = initDriverSync()
+    const stop = subscribeToDrivers()
+    return () => {
+      unsubscribe?.()
+      stop?.()
+    }
+  }, [authReady, session, initDriverSync, subscribeToDrivers])
 
   const tricycles = useMemo(
     () =>

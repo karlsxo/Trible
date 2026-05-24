@@ -1,10 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo } from 'react'
+import { useAuth } from './AuthContext'
 import { useChatStore } from '../store/chatStore'
 
 const ChatContext = createContext(null)
 
 export const ChatProvider = ({ children }) => {
+  const { authReady, session } = useAuth()
   const conversations = useChatStore((state) => state.conversations)
   const activeId = useChatStore((state) => state.activeId)
   const ensureConversation = useChatStore((state) => state.ensureConversation)
@@ -13,8 +15,9 @@ export const ChatProvider = ({ children }) => {
   const initSync = useChatStore((state) => state.initSync)
 
   useEffect(() => {
-    initSync()
-  }, [initSync])
+    if (!authReady || !session) return undefined
+    return initSync()
+  }, [authReady, session, initSync])
 
   const value = useMemo(
     () => ({
