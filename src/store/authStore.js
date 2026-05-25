@@ -204,6 +204,21 @@ export const useAuthStore = create((set, get) => ({
         return { ok: false, message: `This account is not registered as a ${role}.` }
       }
 
+      // CRITICAL FIX: Register driver on login if not already registered
+      if (role === 'driver') {
+        const driverStore = useDriverStore.getState()
+        const existingDriver = driverStore.getDriverByUsername(profile.username)
+        if (!existingDriver) {
+          console.log(`[Auth] 🚗 Registering driver on login: ${profile.username}`)
+          driverStore.registerDriverProfile({
+            id: profile.id,
+            fullName: profile.fullName,
+            username: profile.username,
+            driverNumber: profile.driverNumber,
+          })
+        }
+      }
+
       const session = toSession(profile)
       storage.set(STORAGE_KEYS.session, session)
       set({ session, authReady: true })

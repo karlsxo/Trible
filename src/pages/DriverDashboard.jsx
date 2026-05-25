@@ -10,6 +10,8 @@ import { useAuth } from '../context/AuthContext'
 import { useBooking } from '../context/BookingContext'
 import { useChat } from '../context/ChatContext'
 
+const DRIVER_PROFILE_KEY = 'driver_profile_'
+
 const DriverDashboard = () => {
   const navigate = useNavigate()
   const { session } = useAuth()
@@ -36,44 +38,74 @@ const DriverDashboard = () => {
   const statusIsOnline = myDriver?.status !== 'Offline'
   const online = statusIsOnline
 
-  // Local state for form inputs
-  const [localRoute, setLocalRoute] = useState(destination)
-  const [localTerminal, setLocalTerminal] = useState(terminal)
-  const [routeSaved, setRouteSaved] = useState(false)
-  const [terminalSaved, setTerminalSaved] = useState(false)
+  // Local state for form inputs with localStorage persistence
+  const [localRoute, setLocalRoute] = useState('')
+  const [localTerminal, setLocalTerminal] = useState('')
+  const [saved, setSaved] = useState(false)
 
-  // Update local state when myDriver changes
+  // Load from localStorage on mount
+  useEffect(() => {
+    if (!session?.username) return
+    const key = DRIVER_PROFILE_KEY + session.username
+    try {
+      const stored = localStorage.getItem(key)
+      if (stored) {
+        const { route, terminal } = JSON.parse(stored)
+        setLocalRoute(route || '')
+        setLocalTerminal(terminal || '')
+        console.log(`[LocalStorage] ✅ Loaded driver profile for ${session.username}`)
+      }
+    } catch (err) {
+      console.warn('[LocalStorage] ⚠️ Failed to load from localStorage:', err)
+    }
+  }, [session?.username])
+
+  // Sync Firebase state to local state
   useEffect(() => {
     setLocalRoute(destination)
-  }, [destination])
-
-  useEffect(() => {
     setLocalTerminal(terminal)
-  }, [terminal])
+  }, [destination, terminal])
+
+  // Save to localStorage whenever route or terminal changes
+  const saveToLocalStorage = (route, terminalVal) => {
+    if (!session?.username) return
+    const key = DRIVER_PROFILE_KEY + session.username
+    try {
+      localStorage.setItem(key, JSON.stringify({ route, terminal: terminalVal }))
+      console.log(`[LocalStorage] 💾 Saved driver profile for ${session.username}`)
+    } catch (err) {
+      console.warn('[LocalStorage] ⚠️ Failed to save to localStorage:', err)
+    }
+  }
 
   // Sync online status whenever it changes
   const toggleOnline = () => {
     const next = !statusIsOnline
     if (session?.username) {
+      console.log(`[DriverDashboard] 🟢 Toggling online status to ${next}`)
       setDriverOnline(session.username, next)
     }
   }
 
-  const handleSaveRoute = () => {
+  // Save both route and terminal with single button
+  const handleSave = () => {
     if (session?.username) {
-      console.log(`[UI] 💾 Saving route: "${localRoute}"`)
-      updateDriverDestination(session.username, localRoute)
-      setRouteSaved(true)
-      setTimeout(() => setRouteSaved(false), 2000)
-    }
-  }
-
-  const handleSaveTerminal = () => {
-    if (session?.username) {
-      console.log(`[UI] 💾 Saving terminal: "${localTerminal}"`)
-      updateDriverTerminal(session.username, localTerminal)
-      setTerminalSaved(true)
-      setTimeout(() => setTerminalSaved(false), 2000)
+      console.log(`[DriverDashboard] 💾 Saving - Terminal: "${localTerminal}", Route: "${localRoute}"`)
+      
+      // Update Firebase
+      if (localTerminal.trim()) {
+        updateDriverTerminal(session.username, localTerminal.trim())
+      }
+      if (localRoute.trim()) {
+        updateDriverDestination(session.username, localRoute.trim())
+      }
+      
+      // Save to localStorage
+      saveToLocalStorage(localRoute, localTerminal)
+      
+      // Show feedback
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
     }
   }
 
@@ -91,6 +123,13 @@ const DriverDashboard = () => {
 
   const handleAccept = (booking) => {
     acceptBooking(booking.id)
+  }
+
+  // Handle seat adjustment with immediate persistence
+  const handleSeatChange = (newSeats) => {
+    const seatCount = Math.max(0, newSeats)
+    console.log(`[DriverDashboard] 💺 Adjusting seats to ${seatCount}`)
+    updateDriverSeats(session?.username, seatCount)
   }
 
   return (
@@ -162,58 +201,41 @@ const DriverDashboard = () => {
       <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <div className="glass min-w-0 rounded-3xl p-4 sm:p-6">
           <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/70">
-            Seat Manager
+            Trip Details
           </p>
           <h2 className="text-lg font-semibold text-white sm:text-xl">
-            Adjust available seats
+            Configure your ride
           </h2>
-          
-          <div className="mt-4">
+
+          <div className="mt-6 space-y-4">
             <Input
               label="Waiting Terminal"
-              placeholder="Enter waiting terminal..."
+              placeholder="e.g., Campus Terminal, Terminal A..."
               value={localTerminal}
-              onChange={(event) => setLocalTerminal(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  handleSaveTerminal()
-                }
+              onChange={(e) => setLocalTerminal(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSave()
               }}
             />
-            <div className="mt-2 flex gap-2">
-              <Button
-                size="sm"
-                variant={terminalSaved ? 'default' : 'ghost'}
-                onClick={handleSaveTerminal}
-                className="flex-1"
-              >
-                {terminalSaved ? '✓ Saved' : 'Save Terminal'}
-              </Button>
-            </div>
-          </div>
 
-          <div className="mt-6">
             <Input
-              label="Route"
-              placeholder="Enter destination route..."
+              label="Destination / Route"
+              placeholder="e.g., Shopping Center, Main Campus..."
               value={localRoute}
-              onChange={(event) => setLocalRoute(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  handleSaveRoute()
-                }
+              onChange={(e) => setLocalRoute(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSave()
               }}
             />
-            <div className="mt-2 flex gap-2">
-              <Button
-                size="sm"
-                variant={routeSaved ? 'default' : 'ghost'}
-                onClick={handleSaveRoute}
-                className="flex-1"
-              >
-                {routeSaved ? '✓ Saved' : 'Save Route'}
-              </Button>
-            </div>
+
+            <Button
+              size="sm"
+              variant={saved ? 'default' : 'ghost'}
+              onClick={handleSave}
+              className="w-full"
+            >
+              {saved ? '✓ Saved' : 'Save Trip Details'}
+            </Button>
           </div>
 
           <div className="mt-8">
@@ -224,24 +246,26 @@ const DriverDashboard = () => {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() =>
-                  updateDriverSeats(session?.username, Math.max(0, seats - 1))
-                }
-                className="h-11 w-11 px-0"
+                onClick={() => handleSeatChange(Math.max(0, seats - 1))}
+                className="h-11 w-11 px-0 text-xl"
+                type="button"
               >
                 −
               </Button>
-              <span className="text-2xl font-semibold text-white">{seats}</span>
+              <span className="flex-1 text-center text-3xl font-bold text-white">
+                {seats}
+              </span>
               <Button
                 size="sm"
-                onClick={() => updateDriverSeats(session?.username, seats + 1)}
-                className="h-11 w-11 px-0"
+                onClick={() => handleSeatChange(seats + 1)}
+                className="h-11 w-11 px-0 text-xl"
+                type="button"
               >
                 +
               </Button>
             </div>
             <p className="mt-3 text-xs text-slate-400">
-              Seats update instantly as you adjust them.
+              Seats update instantly. Changes are saved automatically.
             </p>
           </div>
         </div>
@@ -271,4 +295,5 @@ const DriverDashboard = () => {
 }
 
 export default DriverDashboard
+
 
