@@ -25,7 +25,7 @@ const asDriverCard = (driver) => {
     driverId: driver.driverNumber || '',
     seats,
     terminal: driver.terminal ?? '',
-    route: driver.destination ?? '',
+    route: driver.destination || driver.route || '',
     status: driver.online ? (seats > 0 ? 'Available' : 'Full') : 'Offline',
   }
 }

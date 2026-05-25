@@ -7,14 +7,21 @@ const onlineStatusRef = () => ref(db, 'onlineStatus')
 const driverRef = (driverId) => ref(db, `drivers/${driverId}`)
 const driverStatusRef = (driverId) => ref(db, `onlineStatus/${driverId}`)
 
-const normalizeDriver = (driver) => ({
-  ...driver,
-  destination:
-    driver.destination === 'Campus Route' ? '' : driver.destination || driver.route || '',
-  terminal: driver.terminal === 'Campus Terminal' ? '' : driver.terminal || '',
-  availableSeats: Number(driver.availableSeats) || 0,
-  online: Boolean(driver.online ?? driver.isOnline),
-})
+const normalizeDriver = (driver) => {
+  const destination =
+    driver.destination === 'Campus Route'
+      ? ''
+      : driver.destination || driver.route || ''
+
+  return {
+    ...driver,
+    destination,
+    route: destination,
+    terminal: driver.terminal === 'Campus Terminal' ? '' : driver.terminal || '',
+    availableSeats: Number(driver.availableSeats) || 0,
+    online: Boolean(driver.online ?? driver.isOnline),
+  }
+}
 
 const driversObjectToArray = (drivers) =>
   Object.values(drivers || {})
@@ -33,7 +40,8 @@ const toDriverRecord = (driver) => ({
   fullName: driver.fullName,
   username: driver.username,
   driverNumber: driver.driverNumber || '',
-  route: driver.destination || '',
+  route: driver.destination || driver.route || '',
+  destination: driver.destination || driver.route || '',
   terminal: driver.terminal || '',
   availableSeats: Number(driver.availableSeats) || 0,
   isOnline: Boolean(driver.online),
