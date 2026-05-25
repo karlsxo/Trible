@@ -62,8 +62,12 @@ const DriverDashboard = () => {
 
   // Sync Firebase state to local state
   useEffect(() => {
-    setLocalRoute(destination)
-    setLocalTerminal(terminal)
+    if (destination) {
+      setLocalRoute(destination)
+    }
+    if (terminal) {
+      setLocalTerminal(terminal)
+    }
   }, [destination, terminal])
 
   // Save to localStorage whenever route or terminal changes

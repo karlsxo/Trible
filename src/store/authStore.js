@@ -107,6 +107,23 @@ export const useAuthStore = create((set, get) => ({
       }
 
       const session = toSession(profile)
+
+      if (profile.role === 'driver') {
+        const driverStore = useDriverStore.getState()
+        const existingDriver = driverStore.getDriverByUsername(profile.username)
+        if (!existingDriver) {
+          console.log(`[Auth] 🚗 Registering driver on auth restore: ${profile.username}`)
+          driverStore.registerDriverProfile({
+            id: profile.id,
+            fullName: profile.fullName,
+            username: profile.username,
+            driverNumber: profile.driverNumber,
+          })
+        } else {
+          driverStore.toggleDriverStatus(profile.username, true)
+        }
+      }
+
       storage.set(STORAGE_KEYS.session, session)
       set({ session, authReady: true })
     })
@@ -216,6 +233,8 @@ export const useAuthStore = create((set, get) => ({
             username: profile.username,
             driverNumber: profile.driverNumber,
           })
+        } else {
+          driverStore.toggleDriverStatus(profile.username, true)
         }
       }
 
