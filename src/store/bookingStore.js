@@ -10,10 +10,9 @@ import {
   update as dbUpdate,
 } from 'firebase/database'
 import { useDriverStore } from './driverStore'
-import { safeFirebaseKey } from '../utils/firebaseKey'
 
 const bookingsRef = () => ref(db, 'bookings')
-const driverRef = (username) => ref(db, `drivers/${safeFirebaseKey(username)}`)
+const driverRef = (driverId) => ref(db, `drivers/${driverId}`)
 
 let bookingSyncReady = false
 
@@ -78,7 +77,7 @@ export const useBookingStore = create((set, get) => ({
 
     if (db) {
       const seatTransaction = await runTransaction(
-        ref(db, `drivers/${safeFirebaseKey(driver.username)}/availableSeats`),
+        ref(db, `drivers/${driver.id}/availableSeats`),
         (currentSeats) => {
           const seats = Number(currentSeats) || 0
           if (seats <= 0) return
@@ -92,7 +91,7 @@ export const useBookingStore = create((set, get) => ({
       }
 
       nextSeats = Number(seatTransaction.snapshot.val()) || 0
-      dbUpdate(driverRef(driver.username), { updatedAt: Date.now() })
+      dbUpdate(driverRef(driver.id), { updatedAt: Date.now() })
     }
 
     const booking = {
@@ -151,10 +150,10 @@ export const useBookingStore = create((set, get) => ({
     if (driver) {
       if (db) {
         await runTransaction(
-          ref(db, `drivers/${safeFirebaseKey(driver.username)}/availableSeats`),
+          ref(db, `drivers/${driver.id}/availableSeats`),
           (currentSeats) => (Number(currentSeats) || 0) + (booking.seatCount || 1),
         )
-        dbUpdate(driverRef(driver.username), { updatedAt: Date.now() })
+        dbUpdate(driverRef(driver.id), { updatedAt: Date.now() })
         console.log('[Firebase] ✅ Booking cancelled:', bookingId, '- returned', booking.seatCount, 'seats to driver')
       }
     }

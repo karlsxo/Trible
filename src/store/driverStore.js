@@ -1,13 +1,11 @@
 import { create } from 'zustand'
-import { safeFirebaseKey } from '../utils/firebaseKey'
 import { db } from '../lib/firebase'
 import { onValue, ref, set as dbSet, update as dbUpdate } from 'firebase/database'
 
 const driversRef = () => ref(db, 'drivers')
 const onlineStatusRef = () => ref(db, 'onlineStatus')
-const driverKey = (username) => safeFirebaseKey(username)
-const driverRef = (username) => ref(db, `drivers/${driverKey(username)}`)
-const driverStatusRef = (username) => ref(db, `onlineStatus/${driverKey(username)}`)
+const driverRef = (driverId) => ref(db, `drivers/${driverId}`)
+const driverStatusRef = (driverId) => ref(db, `onlineStatus/${driverId}`)
 
 const normalizeDriver = (driver) => ({
   ...driver,
@@ -42,24 +40,24 @@ const toDriverRecord = (driver) => ({
   updatedAt: driver.updatedAt || Date.now(),
 })
 
-const writeDriverRecord = (username, partial, currentDriver) => {
+const writeDriverRecord = (driverId, partial, currentDriver) => {
   const nextDriver = normalizeDriver({
     ...currentDriver,
     ...partial,
     updatedAt: Date.now(),
   })
 
-  console.log(`[Firebase] 🚗 Updating driver ${username}:`, partial)
+  console.log(`[Firebase] 🚗 Updating driver ${currentDriver.username}:`, partial)
   
   if (db) {
-    dbUpdate(driverRef(username), toDriverRecord(nextDriver))
-    dbSet(driverStatusRef(username), {
+    dbUpdate(driverRef(driverId), toDriverRecord(nextDriver))
+    dbSet(driverStatusRef(driverId), {
       id: nextDriver.id,
       username: nextDriver.username,
       isOnline: Boolean(nextDriver.online),
       updatedAt: nextDriver.updatedAt,
     })
-    console.log(`[Firebase] ✅ Driver ${username} synced to Firebase`)
+    console.log(`[Firebase] ✅ Driver ${currentDriver.username} synced to Firebase`)
   }
 
   return nextDriver
@@ -128,8 +126,8 @@ export const useDriverStore = create((set, get) => ({
     set({ drivers: next })
 
     if (db) {
-      dbSet(driverRef(username), toDriverRecord(nextDriver))
-      dbSet(driverStatusRef(username), {
+      dbSet(driverRef(id), toDriverRecord(nextDriver))
+      dbSet(driverStatusRef(id), {
         id,
         username,
         isOnline: Boolean(nextDriver.online),
@@ -141,8 +139,7 @@ export const useDriverStore = create((set, get) => ({
   updateDriverProfile: (username, partial) => {
     const currentDriver = get().drivers.find((driver) => driver.username === username)
     if (!currentDriver) return
-
-    const nextDriver = writeDriverRecord(username, partial, currentDriver)
+    const nextDriver = writeDriverRecord(currentDriver.id, partial, currentDriver)
     const next = get().drivers.map((driver) =>
       driver.username === username ? nextDriver : driver,
     )
@@ -156,7 +153,11 @@ export const useDriverStore = create((set, get) => ({
       return
     }
     console.log(`[Firebase] 🛣️  Updating route for ${username} to "${route}"`)
-    const nextDriver = writeDriverRecord(username, { destination: route }, currentDriver)
+    const nextDriver = writeDriverRecord(
+      currentDriver.id,
+      { destination: route },
+      currentDriver,
+    )
     set({ drivers: get().drivers.map((driver) => (driver.username === username ? nextDriver : driver)) })
   },
 
@@ -169,7 +170,7 @@ export const useDriverStore = create((set, get) => ({
     const seatCount = Math.max(0, Number(seats) || 0)
     console.log(`[Firebase] 💺 Updating seats for ${username} to ${seatCount}`)
     const nextDriver = writeDriverRecord(
-      username,
+      currentDriver.id,
       { availableSeats: seatCount },
       currentDriver,
     )
@@ -183,7 +184,7 @@ export const useDriverStore = create((set, get) => ({
       return
     }
     console.log(`[Firebase] 🟢 Toggling driver ${username} status to ${online ? 'ONLINE' : 'OFFLINE'}`)
-    const nextDriver = writeDriverRecord(username, { online }, currentDriver)
+    const nextDriver = writeDriverRecord(currentDriver.id, { online }, currentDriver)
     set({ drivers: get().drivers.map((driver) => (driver.username === username ? nextDriver : driver)) })
   },
 
