@@ -26,12 +26,16 @@ const Welcome = () => {
           transition={{ duration: 0.6 }}
           className="text-center"
         >
+          <img
+            src="/trible_logo.svg"
+            alt="Trible logo"
+            className="mx-auto mb-6 h-16 w-auto md:h-20"
+          />
           <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/70">
             Welcome to TRIBLE
           </p>
           <h1 className="mt-4 text-balance font-display text-4xl font-semibold text-white md:text-5xl">
-            Connecting students and tricycle drivers with faster and smarter
-            terminal booking.
+            TRIBLE
           </h1>
         </motion.div>
 
