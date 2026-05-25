@@ -28,13 +28,17 @@ export const BookingProvider = ({ children }) => {
 
   useEffect(() => {
     if (!authReady || !session) return undefined
+    console.log('[BookingContext] 📦 Initializing booking sync for', session.username)
     return initSync()
   }, [authReady, session, initSync])
+  
   useEffect(() => {
     if (!authReady || !session) return undefined
+    console.log('[BookingContext] 🚗 Initializing driver sync for', session.username)
     const unsubscribe = initDriverSync()
     const stop = subscribeToDrivers()
     return () => {
+      console.log('[BookingContext] 🧹 Cleaning up driver subscriptions')
       unsubscribe?.()
       stop?.()
     }

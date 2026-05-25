@@ -49,6 +49,8 @@ const writeDriverRecord = (username, partial, currentDriver) => {
     updatedAt: Date.now(),
   })
 
+  console.log(`[Firebase] 🚗 Updating driver ${username}:`, partial)
+  
   if (db) {
     dbUpdate(driverRef(username), toDriverRecord(nextDriver))
     dbSet(driverStatusRef(username), {
@@ -57,6 +59,7 @@ const writeDriverRecord = (username, partial, currentDriver) => {
       isOnline: Boolean(nextDriver.online),
       updatedAt: nextDriver.updatedAt,
     })
+    console.log(`[Firebase] ✅ Driver ${username} synced to Firebase`)
   }
 
   return nextDriver
@@ -74,14 +77,25 @@ export const useDriverStore = create((set, get) => ({
     }
 
     driverSyncReady = true
+    console.log('[Firebase] 🚗 Subscribing to realtime driver updates...')
+    
     const unsubscribeDrivers = onValue(driversRef(), (snapshot) => {
-      set({ drivers: driversObjectToArray(snapshot.val()) })
+      const drivers = driversObjectToArray(snapshot.val())
+      console.log('[Firebase] 🚗 Drivers realtime update:', drivers.length, 'drivers')
+      drivers.forEach(d => {
+        console.log(`  - ${d.fullName} (${d.username}): ${d.online ? '🟢 online' : '🔴 offline'}, seats: ${d.availableSeats}, route: ${d.destination}`)
+      })
+      set({ drivers })
     })
+    
     const unsubscribeOnlineStatus = onValue(onlineStatusRef(), (snapshot) => {
-      set({ onlineStatus: snapshot.val() || {} })
+      const status = snapshot.val() || {}
+      console.log('[Firebase] 🟢 Online status update:', Object.keys(status).length, 'statuses')
+      set({ onlineStatus: status })
     })
 
     driverUnsubscribe = () => {
+      console.log('[Firebase] 🚗 Unsubscribing from driver updates')
       unsubscribeDrivers()
       unsubscribeOnlineStatus()
       driverUnsubscribe = null
@@ -137,17 +151,26 @@ export const useDriverStore = create((set, get) => ({
 
   updateDriverRoute: (username, route) => {
     const currentDriver = get().drivers.find((driver) => driver.username === username)
-    if (!currentDriver) return
+    if (!currentDriver) {
+      console.warn(`[Firebase] ⚠️ Driver ${username} not found for route update`)
+      return
+    }
+    console.log(`[Firebase] 🛣️  Updating route for ${username} to "${route}"`)
     const nextDriver = writeDriverRecord(username, { destination: route }, currentDriver)
     set({ drivers: get().drivers.map((driver) => (driver.username === username ? nextDriver : driver)) })
   },
 
   updateDriverSeats: (username, seats) => {
     const currentDriver = get().drivers.find((driver) => driver.username === username)
-    if (!currentDriver) return
+    if (!currentDriver) {
+      console.warn(`[Firebase] ⚠️ Driver ${username} not found for seat update`)
+      return
+    }
+    const seatCount = Math.max(0, Number(seats) || 0)
+    console.log(`[Firebase] 💺 Updating seats for ${username} to ${seatCount}`)
     const nextDriver = writeDriverRecord(
       username,
-      { availableSeats: Math.max(0, Number(seats) || 0) },
+      { availableSeats: seatCount },
       currentDriver,
     )
     set({ drivers: get().drivers.map((driver) => (driver.username === username ? nextDriver : driver)) })
@@ -155,7 +178,11 @@ export const useDriverStore = create((set, get) => ({
 
   toggleDriverStatus: (username, online) => {
     const currentDriver = get().drivers.find((driver) => driver.username === username)
-    if (!currentDriver) return
+    if (!currentDriver) {
+      console.warn(`[Firebase] ⚠️ Driver ${username} not found for status update`)
+      return
+    }
+    console.log(`[Firebase] 🟢 Toggling driver ${username} status to ${online ? 'ONLINE' : 'OFFLINE'}`)
     const nextDriver = writeDriverRecord(username, { online }, currentDriver)
     set({ drivers: get().drivers.map((driver) => (driver.username === username ? nextDriver : driver)) })
   },

@@ -1,4 +1,5 @@
 import { Activity, CircleDot, MessageSquareText, TicketCheck } from 'lucide-react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Button from '../components/Button'
 import DashboardCard from '../components/DashboardCard'
@@ -35,11 +36,44 @@ const DriverDashboard = () => {
   const statusIsOnline = myDriver?.status !== 'Offline'
   const online = statusIsOnline
 
+  // Local state for form inputs
+  const [localRoute, setLocalRoute] = useState(destination)
+  const [localTerminal, setLocalTerminal] = useState(terminal)
+  const [routeSaved, setRouteSaved] = useState(false)
+  const [terminalSaved, setTerminalSaved] = useState(false)
+
+  // Update local state when myDriver changes
+  useEffect(() => {
+    setLocalRoute(destination)
+  }, [destination])
+
+  useEffect(() => {
+    setLocalTerminal(terminal)
+  }, [terminal])
+
   // Sync online status whenever it changes
   const toggleOnline = () => {
     const next = !statusIsOnline
     if (session?.username) {
       setDriverOnline(session.username, next)
+    }
+  }
+
+  const handleSaveRoute = () => {
+    if (session?.username) {
+      console.log(`[UI] 💾 Saving route: "${localRoute}"`)
+      updateDriverDestination(session.username, localRoute)
+      setRouteSaved(true)
+      setTimeout(() => setRouteSaved(false), 2000)
+    }
+  }
+
+  const handleSaveTerminal = () => {
+    if (session?.username) {
+      console.log(`[UI] 💾 Saving terminal: "${localTerminal}"`)
+      updateDriverTerminal(session.username, localTerminal)
+      setTerminalSaved(true)
+      setTimeout(() => setTerminalSaved(false), 2000)
     }
   }
 
@@ -49,18 +83,14 @@ const DriverDashboard = () => {
       studentName: student.student || 'Student',
       driverId: session?.username || 'driver',
       driverName: session?.name || 'Driver',
-      terminal: terminal || student.terminal || '',
-      route: student.destination || destination || '',
+      terminal: localTerminal || student.terminal || '',
+      route: student.destination || localRoute || '',
     })
     navigate('/chat')
   }
 
   const handleAccept = (booking) => {
     acceptBooking(booking.id)
-  }
-
-  const saveRoute = (value) => {
-    updateDriverDestination(session?.username, value)
   }
 
   return (
@@ -137,55 +167,85 @@ const DriverDashboard = () => {
           <h2 className="text-lg font-semibold text-white sm:text-xl">
             Adjust available seats
           </h2>
+          
           <div className="mt-4">
             <Input
               label="Waiting Terminal"
               placeholder="Enter waiting terminal..."
-              value={terminal}
-              onChange={(event) => {
-                const v = event.target.value
-                if (session?.username) updateDriverTerminal(session?.username, v)
-              }}
-            />
-          </div>
-          <div className="mt-4">
-            <Input
-              key={`${session?.username || 'driver'}-route`}
-              label="Route"
-              placeholder="Enter destination route..."
-              value={destination}
-              onChange={(event) => {
-                const v = event.target.value
-                if (session?.username) saveRoute(v)
-              }}
+              value={localTerminal}
+              onChange={(event) => setLocalTerminal(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
-                  event.currentTarget.blur()
+                  handleSaveTerminal()
                 }
               }}
             />
+            <div className="mt-2 flex gap-2">
+              <Button
+                size="sm"
+                variant={terminalSaved ? 'default' : 'ghost'}
+                onClick={handleSaveTerminal}
+                className="flex-1"
+              >
+                {terminalSaved ? '✓ Saved' : 'Save Terminal'}
+              </Button>
+            </div>
           </div>
-          <div className="mt-6 flex items-center gap-3">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() =>
-                updateDriverSeats(session?.username, Math.max(0, seats - 1))
-              }
-              className="h-11 w-11 px-0"
-            >
-              -
-            </Button>
-            <span className="text-lg font-semibold text-white">{seats}</span>
-            <Button
-              size="sm"
-              onClick={() => updateDriverSeats(session?.username, seats + 1)}
-              className="h-11 w-11 px-0"
-            >
-              +
-            </Button>
+
+          <div className="mt-6">
+            <Input
+              label="Route"
+              placeholder="Enter destination route..."
+              value={localRoute}
+              onChange={(event) => setLocalRoute(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  handleSaveRoute()
+                }
+              }}
+            />
+            <div className="mt-2 flex gap-2">
+              <Button
+                size="sm"
+                variant={routeSaved ? 'default' : 'ghost'}
+                onClick={handleSaveRoute}
+                className="flex-1"
+              >
+                {routeSaved ? '✓ Saved' : 'Save Route'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-8">
+            <p className="mb-4 text-xs uppercase tracking-[0.2em] text-emerald-300/70">
+              Available Seats
+            </p>
+            <div className="flex items-center gap-3">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  updateDriverSeats(session?.username, Math.max(0, seats - 1))
+                }
+                className="h-11 w-11 px-0"
+              >
+                −
+              </Button>
+              <span className="text-2xl font-semibold text-white">{seats}</span>
+              <Button
+                size="sm"
+                onClick={() => updateDriverSeats(session?.username, seats + 1)}
+                className="h-11 w-11 px-0"
+              >
+                +
+              </Button>
+            </div>
+            <p className="mt-3 text-xs text-slate-400">
+              Seats update instantly as you adjust them.
+            </p>
           </div>
         </div>
+
         <div className="glass min-w-0 rounded-3xl p-4 sm:p-6">
           <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/70">
             Current student passengers
@@ -211,3 +271,4 @@ const DriverDashboard = () => {
 }
 
 export default DriverDashboard
+

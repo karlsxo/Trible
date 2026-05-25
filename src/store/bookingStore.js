@@ -46,8 +46,11 @@ export const useBookingStore = create((set, get) => ({
     if (bookingSyncReady || typeof window === 'undefined' || !db) return
     bookingSyncReady = true
 
+    console.log('[Firebase] 📦 Subscribing to realtime booking updates...')
     onValue(bookingsRef(), (snapshot) => {
-      set({ bookings: bookingsObjectToArray(snapshot.val()) })
+      const bookings = bookingsObjectToArray(snapshot.val())
+      console.log('[Firebase] 📦 Bookings realtime update:', bookings.length, 'bookings')
+      set({ bookings })
     })
   },
 
@@ -62,8 +65,12 @@ export const useBookingStore = create((set, get) => ({
     const driverStore = useDriverStore.getState()
     const driver = driverStore.getDriverByUsername(data.driverUsername)
 
-    if (!driver) return { ok: false, message: 'Driver not found.' }
+    if (!driver) {
+      console.warn('[Firebase] ⚠️ Driver not found for booking:', data.driverUsername)
+      return { ok: false, message: 'Driver not found.' }
+    }
     if ((Number(driver.availableSeats) || 0) <= 0 || driver.online === false) {
+      console.warn('[Firebase] ⚠️ Driver unavailable:', driver.username, '- seats:', driver.availableSeats, '- online:', driver.online)
       return { ok: false, message: 'Driver has no available seats.' }
     }
 
@@ -80,6 +87,7 @@ export const useBookingStore = create((set, get) => ({
       )
 
       if (!seatTransaction.committed) {
+        console.warn('[Firebase] ⚠️ Seat transaction failed for driver:', driver.username)
         return { ok: false, message: 'Driver has no available seats.' }
       }
 
@@ -113,6 +121,7 @@ export const useBookingStore = create((set, get) => ({
 
     if (db && bookingRef) {
       await dbSet(bookingRef, nextBooking)
+      console.log('[Firebase] ✅ Booking created:', bookingId, '- student:', data.studentName, '- driver:', driver.fullName)
     }
 
     return { ok: true, seatsLeft: nextSeats }
@@ -126,12 +135,14 @@ export const useBookingStore = create((set, get) => ({
 
     if (db) {
       dbUpdate(ref(db, `bookings/${id}`), { status: 'Accepted' })
+      console.log('[Firebase] ✅ Booking accepted:', id)
     }
   },
 
   cancelBooking: async (bookingId, studentUsername) => {
     const booking = get().bookings.find((b) => b.id === bookingId)
     if (!booking || booking.studentUsername !== studentUsername) {
+      console.warn('[Firebase] ⚠️ Booking not found or unauthorized:', bookingId)
       return { ok: false, message: 'Booking not found.' }
     }
 
@@ -144,6 +155,7 @@ export const useBookingStore = create((set, get) => ({
           (currentSeats) => (Number(currentSeats) || 0) + (booking.seatCount || 1),
         )
         dbUpdate(driverRef(driver.username), { updatedAt: Date.now() })
+        console.log('[Firebase] ✅ Booking cancelled:', bookingId, '- returned', booking.seatCount, 'seats to driver')
       }
     }
 

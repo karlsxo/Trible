@@ -1,5 +1,5 @@
 import { MessageSquareText, TicketCheck, Users } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BookingModal from '../components/BookingModal'
 import DashboardCard from '../components/DashboardCard'
@@ -18,6 +18,16 @@ const StudentDashboard = () => {
   const { ensureConversation, conversations } = useChat()
   const [toast, setToast] = useState(null)
   const [modal, setModal] = useState(null)
+  
+  // Log realtime updates
+  useEffect(() => {
+    console.log('[StudentDashboard] 🚗 Realtime drivers update:', tricycles.length, 'drivers available')
+    tricycles.forEach(t => {
+      const status = t.status === 'Available' ? '🟢' : t.status === 'Full' ? '🔴' : '⚫'
+      console.log(`  ${status} ${t.driver} @ ${t.terminal}: ${t.seats} seats, ${t.route}`)
+    })
+  }, [tricycles])
+
   const myBookings = bookings.filter((b) => b.studentUsername === session?.username)
   const myChats = conversations.filter((c) => c.studentId === session?.username)
   const unreadMessages = myChats.reduce(
