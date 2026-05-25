@@ -29,7 +29,7 @@ const Welcome = () => {
           <img
             src="/trible_logo.svg"
             alt="Trible logo"
-            className="mx-auto mb-6 h-28 w-auto md:h-32"
+            className="mx-auto mb-6 h-44 w-auto md:h-56"
           />
           <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/70">
             Welcome to TRIBLE
