@@ -1,5 +1,5 @@
 import { getApps, initializeApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
+import { browserLocalPersistence, getAuth, setPersistence } from 'firebase/auth'
 import { getDatabase } from 'firebase/database'
 
 const env = import.meta.env
@@ -84,6 +84,10 @@ const app = hasConfig
     : initializeApp(firebaseConfig)
   : null
 
+if (app && typeof window !== 'undefined') {
+  console.log('TRIBLE Firebase initialized')
+}
+
 if (!hasConfig && typeof window !== 'undefined') {
   console.warn(
     `TRIBLE Firebase is not configured. Missing: ${missingRequiredEnvKeys.join(', ')}`,
@@ -105,3 +109,13 @@ export const firebaseConfigStatus = {
 export const firebaseReady = Boolean(app)
 export const auth = app ? getAuth(app) : null
 export const db = app ? getDatabase(app) : null
+
+if (auth && typeof window !== 'undefined') {
+  setPersistence(auth, browserLocalPersistence)
+    .then(() => {
+      console.log('TRIBLE Firebase auth persistence set to local')
+    })
+    .catch((error) => {
+      console.warn('TRIBLE Firebase auth persistence failed', error)
+    })
+}

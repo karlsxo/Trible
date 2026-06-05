@@ -39,17 +39,28 @@ const toSession = (profile) => ({
 
 const getAuthMessage = (error, fallback = 'Authentication failed.') => {
   const code = error?.code || ''
+  const errorMap = {
+    'auth/too-many-requests':
+      'Too many login attempts detected. Please wait a few minutes and try again.',
+    'auth/user-not-found': 'No account exists with this email.',
+    'auth/wrong-password': 'Incorrect password.',
+    'auth/invalid-email': 'Invalid email address.',
+    'auth/network-request-failed': 'Network connection lost. Please try again.',
+    'auth/user-disabled': 'This account has been disabled.',
+    'auth/email-already-in-use': 'An account already exists with this email.',
+  }
+
+  if (errorMap[code]) return errorMap[code]
   if (code.includes('configuration-not-found')) {
     return 'Enable Email/Password in Firebase Console → Authentication → Sign-in method, then redeploy with the correct Firebase project settings.'
   }
   if (code.includes('unauthorized-domain')) {
     return 'Add this site to Firebase Console → Authentication → Settings → Authorized domains.'
   }
-  if (code.includes('email-already-in-use')) return 'Email is already registered.'
-  if (code.includes('invalid-email')) return 'Enter a valid email address.'
-  if (code.includes('invalid-credential')) return 'Invalid email or password.'
+  if (code.includes('invalid-credential') || code.includes('invalid-login-credentials')) {
+    return 'Invalid email or password.'
+  }
   if (code.includes('weak-password')) return 'Password must be at least 6 characters.'
-  if (code.includes('network-request-failed')) return 'Network error. Check your connection.'
   return error?.message || fallback
 }
 
@@ -57,6 +68,51 @@ const getConfigMessage = () => {
   const missing = firebaseConfigStatus.missingRequiredEnvKeys
   if (!missing.length) return 'Firebase Authentication is not configured.'
   return `Firebase is missing Vercel environment variables: ${missing.join(', ')}. Add them, then redeploy.`
+}
+
+const MAX_LOGIN_ATTEMPTS = 5
+const LOGIN_ATTEMPT_WINDOW_MS = 5 * 60 * 1000
+const loginAttempts = new Map()
+
+const getLoginAttemptState = (email) => {
+  const key = normalizeEmail(email || '')
+  if (!key) return { key, allowed: true, retryAfterMs: 0 }
+
+  const now = Date.now()
+  const existing = loginAttempts.get(key)
+  if (!existing) return { key, allowed: true, retryAfterMs: 0 }
+
+  const elapsed = now - existing.firstAttemptAt
+  if (elapsed >= LOGIN_ATTEMPT_WINDOW_MS) {
+    loginAttempts.delete(key)
+    return { key, allowed: true, retryAfterMs: 0 }
+  }
+
+  if (existing.count >= MAX_LOGIN_ATTEMPTS) {
+    return { key, allowed: false, retryAfterMs: LOGIN_ATTEMPT_WINDOW_MS - elapsed }
+  }
+
+  return { key, allowed: true, retryAfterMs: 0 }
+}
+
+const recordLoginAttempt = (key) => {
+  if (!key) return
+  const now = Date.now()
+  const existing = loginAttempts.get(key)
+
+  if (!existing || now - existing.firstAttemptAt >= LOGIN_ATTEMPT_WINDOW_MS) {
+    loginAttempts.set(key, { count: 1, firstAttemptAt: now })
+    return
+  }
+
+  loginAttempts.set(key, {
+    count: existing.count + 1,
+    firstAttemptAt: existing.firstAttemptAt,
+  })
+}
+
+const clearLoginAttempts = (key) => {
+  if (key) loginAttempts.delete(key)
 }
 
 let authSyncReady = false
@@ -81,6 +137,7 @@ export const useAuthStore = create((set, get) => ({
     authSyncReady = true
 
     if (!auth || !db) {
+      console.warn('[Auth] Firebase auth not ready for sync')
       storage.remove(STORAGE_KEYS.session)
       set({ users: [], session: null, authReady: true })
       return () => {}
@@ -91,6 +148,8 @@ export const useAuthStore = create((set, get) => ({
     })
 
     authUnsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('[Auth] Auth state changed', firebaseUser ? 'signed-in' : 'signed-out')
+      console.log('[Auth] Current user UID', firebaseUser?.uid || 'none')
       if (!firebaseUser) {
         storage.remove(STORAGE_KEYS.session)
         set({ session: null, authReady: true })
@@ -207,12 +266,27 @@ export const useAuthStore = create((set, get) => ({
       return { ok: false, message: getConfigMessage() }
     }
 
+    const normalizedEmail = normalizeEmail(email || '')
+    const attemptState = getLoginAttemptState(normalizedEmail)
+    if (!attemptState.allowed) {
+      console.warn('[Auth] Login blocked by rate limiter', {
+        email: normalizedEmail,
+        retryAfterMs: attemptState.retryAfterMs,
+      })
+      return { ok: false, message: 'Too many login attempts. Please wait 5 minutes.' }
+    }
+
+    recordLoginAttempt(normalizedEmail)
+    console.log('[Auth] Login started', { email: normalizedEmail, role })
+
     try {
       const credential = await signInWithEmailAndPassword(
         auth,
-        normalizeEmail(email || ''),
+        normalizedEmail,
         password.trim(),
       )
+      console.log('[Auth] Login success', credential.user?.uid || 'unknown')
+      clearLoginAttempts(normalizedEmail)
       const profileSnapshot = await dbGet(userRef(credential.user.uid))
       const profile = profileSnapshot.val()
 
@@ -243,6 +317,7 @@ export const useAuthStore = create((set, get) => ({
       set({ session, authReady: true })
       return { ok: true, role: profile.role }
     } catch (error) {
+      console.log('[Auth] Login failed', error?.code || error?.message || 'unknown')
       console.error('FULL LOGIN ERROR:', error)
       console.error('ERROR CODE:', error?.code)
       console.error('ERROR MESSAGE:', error?.message)

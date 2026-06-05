@@ -12,6 +12,7 @@ const Auth = () => {
   const { authReady, login, signUp, session } = useAuth()
   const [mode, setMode] = useState('login')
   const [toast, setToast] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
   const [form, setForm] = useState({
     fullName: '',
     driverNumber: '',
@@ -43,6 +44,8 @@ const Auth = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (isLoading) return
+
     if (mode === 'login') {
       if (!form.identifier?.trim() || !form.password?.trim()) {
         setToast({ title: 'Login failed', message: 'Email and password are required.' })
@@ -50,6 +53,7 @@ const Auth = () => {
       }
 
       try {
+        setIsLoading(true)
         const result = await login(form.identifier, form.password, normalizedRole)
         if (!result.ok) {
           setToast({ title: 'Login failed', message: result.message })
@@ -67,6 +71,8 @@ const Auth = () => {
           message: error?.message || 'Unexpected login error.',
         })
         return
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -76,6 +82,7 @@ const Auth = () => {
     }
 
     try {
+      setIsLoading(true)
       const result = await signUp(normalizedRole, {
         fullName: form.fullName,
         driverNumber: form.driverNumber,
@@ -99,6 +106,8 @@ const Auth = () => {
         title: 'Sign up failed',
         message: error?.message || 'Unexpected sign up error.',
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -166,6 +175,7 @@ const Auth = () => {
             form={form}
             onChange={handleChange}
             onSubmit={handleSubmit}
+            isLoading={isLoading}
             onToggleMode={() =>
               setMode((prev) => (prev === 'login' ? 'signup' : 'login'))
             }

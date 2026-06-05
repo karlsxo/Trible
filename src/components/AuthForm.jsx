@@ -1,7 +1,7 @@
 import Button from './Button'
 import Input from './Input'
 
-const AuthForm = ({ role, mode, form, onChange, onSubmit, onToggleMode }) => {
+const AuthForm = ({ role, mode, form, onChange, onSubmit, onToggleMode, isLoading }) => {
   const isLogin = mode === 'login'
 
   return (
@@ -60,7 +60,7 @@ const AuthForm = ({ role, mode, form, onChange, onSubmit, onToggleMode }) => {
         value={form.password}
         onChange={onChange}
       />
-      <Button className="w-full" size="lg" type="submit">
+      <Button className="w-full" size="lg" type="submit" disabled={isLoading}>
         {isLogin ? 'Login' : 'Create account'}
       </Button>
       <button
