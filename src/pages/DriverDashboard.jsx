@@ -43,6 +43,7 @@ const DriverDashboard = () => {
   const [localRoute, setLocalRoute] = useState('')
   const [localTerminal, setLocalTerminal] = useState('')
   const [saved, setSaved] = useState(false)
+  const [chatError, setChatError] = useState('')
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -127,6 +128,11 @@ const DriverDashboard = () => {
       terminal: localTerminal || student.terminal || '',
       route: student.destination || localRoute || '',
     })
+    if (!conversationId) {
+      setChatError('Unable to start chat with this student.')
+      return
+    }
+    setChatError('')
     navigate(`/chat?conversation=${encodeURIComponent(conversationId)}`)
   }
 
@@ -283,6 +289,11 @@ const DriverDashboard = () => {
           <p className="text-xs uppercase tracking-[0.2em] text-emerald-300/70">
             Current student passengers
           </p>
+          {chatError ? (
+            <p className="mt-3 rounded-2xl border border-rose-400/20 bg-rose-400/10 p-3 text-xs text-rose-100">
+              {chatError}
+            </p>
+          ) : null}
           <div className="mt-4 space-y-3 text-sm text-slate-300">
             {waiting.length === 0 ? (
               <p>No Current Passengers</p>
@@ -304,4 +315,3 @@ const DriverDashboard = () => {
 }
 
 export default DriverDashboard
-

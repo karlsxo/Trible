@@ -113,8 +113,8 @@ export const useChatStore = create((set, get) => ({
       route: payload.route,
       updatedAt: Date.now(),
       unreadBy: {
-        [payload.studentId]: 0,
-        [payload.driverId]: 0,
+        [studentId]: 0,
+        [driverId]: 0,
       },
       messages: [],
     }
@@ -135,15 +135,16 @@ export const useChatStore = create((set, get) => ({
 
   setActiveConversation: (id, userId) => {
     const normalizedId = String(id || '').trim()
+    const normalizedUserId = normalizeId(userId)
     if (!normalizedId) return
 
     const next = get().conversations.map((conv) => {
-      if (conv.id !== normalizedId || !userId) return conv
+      if (conv.id !== normalizedId || !normalizedUserId) return conv
       return {
         ...conv,
         unreadBy: {
           ...(conv.unreadBy || {}),
-          [userId]: 0,
+          [normalizedUserId]: 0,
         },
       }
     })

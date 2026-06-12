@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { useChat } from '../context/ChatContext'
@@ -17,6 +17,8 @@ const normalizeId = (value) => String(value || '').trim().toLowerCase()
 
 const Chat = () => {
   const { session } = useAuth()
+  const sessionRole = session?.role
+  const sessionUsername = session?.username
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { conversations, setActiveConversation, sendMessage } = useChat()
@@ -24,16 +26,26 @@ const Chat = () => {
   const messagesEndRef = useRef(null)
   const [selectedConversationId, setSelectedConversationId] = useState(null)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
-  const driverStatusMap = Object.fromEntries(
-    tricycles.map((driver) => [driver.driverUsername, driver.status]),
+  const driverStatusMap = useMemo(
+    () =>
+      Object.fromEntries(
+        tricycles.map((driver) => [normalizeId(driver.driverUsername), driver.status]),
+      ),
+    [tricycles],
   )
-  const scopedConversations = conversations.filter((c) =>
-    session?.role === 'driver'
-      ? normalizeId(c.driverId) === normalizeId(session?.username)
-      : normalizeId(c.studentId) === normalizeId(session?.username),
+  const scopedConversations = useMemo(
+    () =>
+      conversations.filter((c) =>
+        sessionRole === 'driver'
+          ? normalizeId(c.driverId) === normalizeId(sessionUsername)
+          : normalizeId(c.studentId) === normalizeId(sessionUsername),
+      ),
+    [conversations, sessionRole, sessionUsername],
   )
   const requestedConversationId = searchParams.get('conversation')
   const effectiveConversationId = requestedConversationId || selectedConversationId
+  const dashboardRoute =
+    sessionRole === 'driver' ? '/dashboard/driver' : '/dashboard/student'
 
   useEffect(() => {
     if (!session) navigate('/welcome')
@@ -43,15 +55,21 @@ const Chat = () => {
     scopedConversations.find((c) => c.id === effectiveConversationId) || null
 
   useEffect(() => {
-    if (!requestedConversationId || !session?.username) return
+    if (!requestedConversationId || !sessionUsername) return
     const requestedInScope = scopedConversations.find((c) => c.id === requestedConversationId)
     if (!requestedInScope) return
+    let cancelled = false
     queueMicrotask(() => {
-      setSelectedConversationId(requestedConversationId)
-      setActiveConversation(requestedConversationId, session.username)
-      setMobileChatOpen(true)
+      if (!cancelled) {
+        setSelectedConversationId(requestedConversationId)
+        setActiveConversation(requestedConversationId, sessionUsername)
+        setMobileChatOpen(true)
+      }
     })
-  }, [requestedConversationId, session?.username, scopedConversations, setActiveConversation])
+    return () => {
+      cancelled = true
+    }
+  }, [requestedConversationId, sessionUsername, scopedConversations, setActiveConversation])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -75,9 +93,9 @@ const Chat = () => {
     <div className="mx-auto w-full max-w-7xl overflow-hidden px-3 py-3 sm:px-4 md:py-6">
       <div className="mb-3 flex items-center justify-between gap-3">
         <BackButton
-          fallback={
-            session?.role === 'driver' ? '/dashboard/driver' : '/dashboard/student'
-          }
+          to={dashboardRoute}
+          fallback={dashboardRoute}
+          label="Dashboard"
           className="shrink-0"
         />
       </div>
@@ -99,7 +117,7 @@ const Chat = () => {
                 unread: c.unreadBy?.[session.username] || 0,
                 status:
                   session?.role === 'student'
-                    ? driverStatusMap[c.driverId] || 'Offline'
+                    ? driverStatusMap[normalizeId(c.driverId)] || 'Offline'
                     : 'Online',
               }))}
               activeId={effectiveConversationId}

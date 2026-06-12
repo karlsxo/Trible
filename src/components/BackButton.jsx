@@ -1,10 +1,15 @@
 import { ArrowLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
-const BackButton = ({ fallback = '/welcome', label = 'Back', className = '' }) => {
+const BackButton = ({ fallback = '/welcome', label = 'Back', className = '', to }) => {
   const navigate = useNavigate()
 
   const handleBack = () => {
+    if (to) {
+      navigate(to)
+      return
+    }
+
     if (window.history.length > 1) {
       navigate(-1)
       return

@@ -64,6 +64,10 @@ const StudentDashboard = () => {
       terminal: data.terminal,
       route: data.route,
     })
+    if (!conversationId) {
+      setToast({ title: 'Chat unavailable', message: 'Unable to start a chat with this driver.' })
+      return
+    }
     navigate(`/chat?conversation=${encodeURIComponent(conversationId)}`)
   }
 
