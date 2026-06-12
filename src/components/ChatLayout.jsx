@@ -1,8 +1,8 @@
 const ChatLayout = ({ sidebar, header, children, mobileMode = 'list' }) => {
   return (
-    <div className="grid min-h-[calc(100svh-7rem)] grid-cols-1 gap-4 overflow-hidden lg:min-h-[calc(100vh-9rem)] lg:grid-cols-[340px_minmax(0,1fr)]">
+    <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[340px_minmax(0,1fr)]">
       <div
-        className={`glass min-h-0 rounded-3xl p-3 sm:p-4 md:p-5 ${
+        className={`glass min-h-0 overflow-hidden rounded-3xl p-3 sm:p-4 md:p-5 ${
           mobileMode === 'chat' ? 'hidden lg:block' : 'block'
         }`}
       >

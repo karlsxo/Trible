@@ -14,7 +14,7 @@ const ChatInput = ({ onSend }) => {
 
   return (
     <form
-      className="sticky bottom-0 mt-3 flex gap-2 border-t border-white/5 bg-night-950/50 pt-3 backdrop-blur md:mt-4 md:pt-4"
+      className="mt-3 flex shrink-0 gap-2 border-t border-white/5 bg-night-950/50 pt-3 backdrop-blur md:mt-4 md:pt-4"
       onSubmit={handleSubmit}
     >
       <input

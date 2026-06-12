@@ -90,8 +90,8 @@ const Chat = () => {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl overflow-hidden px-3 py-3 sm:px-4 md:py-6">
-      <div className="mb-3 flex items-center justify-between gap-3">
+    <div className="mx-auto flex h-svh w-full max-w-7xl flex-col overflow-hidden px-3 py-3 sm:px-4 md:py-6">
+      <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
         <BackButton
           to={dashboardRoute}
           fallback={dashboardRoute}

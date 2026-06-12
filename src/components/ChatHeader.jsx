@@ -2,7 +2,7 @@ import { ArrowLeft } from 'lucide-react'
 
 const ChatHeader = ({ title, subtitle, onBack, status }) => {
   return (
-    <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+    <div className="flex shrink-0 items-center gap-3 border-b border-white/5 pb-4">
       {onBack ? (
         <button
           type="button"
