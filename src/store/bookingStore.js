@@ -16,11 +16,6 @@ const driverRef = (driverId) => ref(db, `drivers/${driverId}`)
 
 let bookingSyncReady = false
 const normalizeId = (value) => String(value || '').trim().toLowerCase()
-const isPermissionDeniedError = (error) => {
-  const code = String(error?.code || '').toUpperCase()
-  const message = String(error?.message || '').toLowerCase()
-  return code.includes('PERMISSION_DENIED') || message.includes('permission_denied')
-}
 
 const asDriverCard = (driver) => {
   const seats = Number(driver.availableSeats) || 0
@@ -108,31 +103,23 @@ export const useBookingStore = create((set, get) => ({
     let seatDecremented = false
     try {
       if (db) {
-        try {
-          const seatTransaction = await runTransaction(
-            ref(db, `drivers/${driver.id}/availableSeats`),
-            (currentSeats) => {
-              const seats = Number(currentSeats) || 0
-              if (seats <= 0) return
-              return seats - 1
-            },
-          )
+        const seatTransaction = await runTransaction(
+          ref(db, `drivers/${driver.id}/availableSeats`),
+          (currentSeats) => {
+            const seats = Number(currentSeats) || 0
+            if (seats <= 0) return
+            return seats - 1
+          },
+        )
 
-          if (!seatTransaction.committed) {
-            console.warn('[Firebase] ⚠️ Seat transaction failed for driver:', driver.username)
-            return { ok: false, message: 'Driver has no available seats.' }
-          }
-
-          seatDecremented = true
-          nextSeats = Number(seatTransaction.snapshot.val()) || 0
-          await dbUpdate(driverRef(driver.id), { updatedAt: Date.now() })
-        } catch (seatError) {
-          if (isPermissionDeniedError(seatError)) {
-            console.warn('[Firebase] ⚠️ Seat sync skipped (permission denied) for booking:', seatError)
-          } else {
-            throw seatError
-          }
+        if (!seatTransaction.committed) {
+          console.warn('[Firebase] ⚠️ Seat transaction failed for driver:', driver.username)
+          return { ok: false, message: 'Driver has no available seats.' }
         }
+
+        seatDecremented = true
+        nextSeats = Number(seatTransaction.snapshot.val()) || 0
+        await dbUpdate(driverRef(driver.id), { updatedAt: Date.now() })
       }
 
       const bookingRef = db ? push(bookingsRef()) : null
@@ -190,20 +177,12 @@ export const useBookingStore = create((set, get) => ({
     const driver = driverStore.getDriverByUsername(normalizeId(booking.driverUsername))
     const driverId = booking.driverRecordId || driver?.id
     if (driverId && db) {
-      try {
-        await runTransaction(
-          ref(db, `drivers/${driverId}/availableSeats`),
-          (currentSeats) => (Number(currentSeats) || 0) + (booking.seatCount || 1),
-        )
-        await dbUpdate(driverRef(driverId), { updatedAt: Date.now() })
-        console.log('[Firebase] ✅ Booking cancelled:', bookingId, '- returned', booking.seatCount, 'seats to driver')
-      } catch (seatError) {
-        if (isPermissionDeniedError(seatError)) {
-          console.warn('[Firebase] ⚠️ Seat return skipped (permission denied) on cancel:', seatError)
-        } else {
-          throw seatError
-        }
-      }
+      await runTransaction(
+        ref(db, `drivers/${driverId}/availableSeats`),
+        (currentSeats) => (Number(currentSeats) || 0) + (booking.seatCount || 1),
+      )
+      await dbUpdate(driverRef(driverId), { updatedAt: Date.now() })
+      console.log('[Firebase] ✅ Booking cancelled:', bookingId, '- returned', booking.seatCount, 'seats to driver')
     }
 
     const nextBookings = get().bookings.filter((b) => String(b.id) !== normalizedBookingId)

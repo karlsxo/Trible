@@ -11,7 +11,10 @@
     "drivers": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "auth != null && auth.uid === $uid"
+        ".write": "auth != null && auth.uid === $uid",
+        "availableSeats": {
+          ".write": "auth != null"
+        }
       }
     },
     "bookings": {
