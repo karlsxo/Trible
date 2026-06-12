@@ -67,8 +67,12 @@ const StudentDashboard = () => {
     navigate(`/chat?conversation=${encodeURIComponent(conversationId)}`)
   }
 
-  const handleCancelBooking = async (driverData) => {
-    const booking = myBookings.find((b) => b.driverUsername === driverData.driverUsername)
+  const handleCancelBooking = async (bookingOrDriver) => {
+    const booking =
+      typeof bookingOrDriver === 'string'
+        ? myBookings.find((b) => String(b.id) === bookingOrDriver)
+        : myBookings.find((b) => b.driverUsername === bookingOrDriver.driverUsername)
+
     if (!booking) return
 
     const result = await cancelBooking(booking.id, session?.username)
@@ -195,7 +199,7 @@ const StudentDashboard = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleCancelBooking(booking.id)}
+                  onClick={() => handleCancelBooking(booking)}
                   className="w-full md:w-auto"
                 >
                   Cancel Booking

@@ -52,8 +52,10 @@ const DriverDashboard = () => {
       const stored = localStorage.getItem(key)
       if (stored) {
         const { route, terminal } = JSON.parse(stored)
-        setLocalRoute(route || '')
-        setLocalTerminal(terminal || '')
+        queueMicrotask(() => {
+          setLocalRoute(route || '')
+          setLocalTerminal(terminal || '')
+        })
         console.log(`[LocalStorage] ✅ Loaded driver profile for ${session.username}`)
       }
     } catch (err) {
@@ -63,12 +65,14 @@ const DriverDashboard = () => {
 
   // Sync Firebase state to local state
   useEffect(() => {
-    if (destination) {
-      setLocalRoute(destination)
-    }
-    if (terminal) {
-      setLocalTerminal(terminal)
-    }
+    queueMicrotask(() => {
+      if (destination) {
+        setLocalRoute(destination)
+      }
+      if (terminal) {
+        setLocalTerminal(terminal)
+      }
+    })
   }, [destination, terminal])
 
   // Save to localStorage whenever route or terminal changes
@@ -300,5 +304,4 @@ const DriverDashboard = () => {
 }
 
 export default DriverDashboard
-
 

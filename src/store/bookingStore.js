@@ -1,19 +1,9 @@
 import { create } from 'zustand'
 import { db } from '../lib/firebase'
-import {
-  onValue,
-  push,
-  ref,
-  remove,
-  runTransaction,
-  set as dbSet,
-  update as dbUpdate,
-} from 'firebase/database'
+import { onValue, push, ref, remove, runTransaction, set as dbSet, update as dbUpdate } from 'firebase/database'
 import { useDriverStore } from './driverStore'
 
 const bookingsRef = () => ref(db, 'bookings')
-const driverRef = (driverId) => ref(db, `drivers/${driverId}`)
-
 let bookingSyncReady = false
 const normalizeId = (value) => String(value || '').trim().toLowerCase()
 
@@ -119,7 +109,6 @@ export const useBookingStore = create((set, get) => ({
 
         seatDecremented = true
         nextSeats = Number(seatTransaction.snapshot.val()) || 0
-        await dbUpdate(driverRef(driver.id), { updatedAt: Date.now() })
       }
 
       const bookingRef = db ? push(bookingsRef()) : null
@@ -139,7 +128,6 @@ export const useBookingStore = create((set, get) => ({
               ref(db, `drivers/${driver.id}/availableSeats`),
               (currentSeats) => (Number(currentSeats) || 0) + 1,
             )
-            await dbUpdate(driverRef(driver.id), { updatedAt: Date.now() })
           }
           throw writeError
         }
@@ -181,7 +169,6 @@ export const useBookingStore = create((set, get) => ({
         ref(db, `drivers/${driverId}/availableSeats`),
         (currentSeats) => (Number(currentSeats) || 0) + (booking.seatCount || 1),
       )
-      await dbUpdate(driverRef(driverId), { updatedAt: Date.now() })
       console.log('[Firebase] ✅ Booking cancelled:', bookingId, '- returned', booking.seatCount, 'seats to driver')
     }
 

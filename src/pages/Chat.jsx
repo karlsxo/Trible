@@ -46,9 +46,11 @@ const Chat = () => {
     if (!requestedConversationId || !session?.username) return
     const requestedInScope = scopedConversations.find((c) => c.id === requestedConversationId)
     if (!requestedInScope) return
-    setSelectedConversationId(requestedConversationId)
-    setActiveConversation(requestedConversationId, session.username)
-    setMobileChatOpen(true)
+    queueMicrotask(() => {
+      setSelectedConversationId(requestedConversationId)
+      setActiveConversation(requestedConversationId, session.username)
+      setMobileChatOpen(true)
+    })
   }, [requestedConversationId, session?.username, scopedConversations, setActiveConversation])
 
   useEffect(() => {
