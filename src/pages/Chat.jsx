@@ -13,6 +13,8 @@ import BackButton from '../components/BackButton'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useBooking } from '../context/BookingContext'
 
+const normalizeId = (value) => String(value || '').trim().toLowerCase()
+
 const Chat = () => {
   const { session } = useAuth()
   const navigate = useNavigate()
@@ -27,8 +29,8 @@ const Chat = () => {
   )
   const scopedConversations = conversations.filter((c) =>
     session?.role === 'driver'
-      ? c.driverId === session.username
-      : c.studentId === session?.username,
+      ? normalizeId(c.driverId) === normalizeId(session?.username)
+      : normalizeId(c.studentId) === normalizeId(session?.username),
   )
   const requestedConversationId = searchParams.get('conversation')
   const effectiveConversationId = requestedConversationId || selectedConversationId
@@ -39,6 +41,15 @@ const Chat = () => {
 
   const active =
     scopedConversations.find((c) => c.id === effectiveConversationId) || null
+
+  useEffect(() => {
+    if (!requestedConversationId || !session?.username) return
+    const requestedInScope = scopedConversations.find((c) => c.id === requestedConversationId)
+    if (!requestedInScope) return
+    setSelectedConversationId(requestedConversationId)
+    setActiveConversation(requestedConversationId, session.username)
+    setMobileChatOpen(true)
+  }, [requestedConversationId, session?.username, scopedConversations, setActiveConversation])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })

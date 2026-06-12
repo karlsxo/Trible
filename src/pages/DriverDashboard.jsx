@@ -11,6 +11,7 @@ import { useBooking } from '../context/BookingContext'
 import { useChat } from '../context/ChatContext'
 
 const DRIVER_PROFILE_KEY = 'driver_profile_'
+const normalizeId = (value) => String(value || '').trim().toLowerCase()
 
 const DriverDashboard = () => {
   const navigate = useNavigate()
@@ -114,15 +115,15 @@ const DriverDashboard = () => {
   }
 
   const handleChat = (student) => {
-    ensureConversation({
-      studentId: student.studentUsername || student.studentId || 'student',
+    const conversationId = ensureConversation({
+      studentId: normalizeId(student.studentUsername || student.studentId || 'student'),
       studentName: student.student || 'Student',
-      driverId: session?.username || 'driver',
+      driverId: normalizeId(session?.username || 'driver'),
       driverName: session?.name || 'Driver',
       terminal: localTerminal || student.terminal || '',
       route: student.destination || localRoute || '',
     })
-    navigate('/chat')
+    navigate(`/chat?conversation=${encodeURIComponent(conversationId)}`)
   }
 
   const handleAccept = (booking) => {

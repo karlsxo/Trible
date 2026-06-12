@@ -44,14 +44,14 @@ const StudentDashboard = () => {
     })
 
     if (!result.ok) {
-      setToast({ title: 'Fully booked', message: 'Try another terminal.' })
+      setToast({ title: 'Booking failed', message: result.message || 'Try another terminal.' })
       return
     }
 
     setModal({
       driver: data.driver,
       terminal: data.terminal,
-      seats: Math.max(0, data.seats - 1),
+      seats: Math.max(0, Number(result.seatsLeft) || 0),
     })
   }
 

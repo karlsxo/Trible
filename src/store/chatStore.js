@@ -12,6 +12,7 @@ const messagesRef = () => ref(db, 'messages')
 let chatSyncReady = false
 let remoteConversationMeta = []
 let remoteMessagesByConversation = {}
+const normalizeId = (value) => String(value || '').trim().toLowerCase()
 
 const getTimestamp = () =>
   new Date().toLocaleTimeString('en-US', {
@@ -19,7 +20,8 @@ const getTimestamp = () =>
     minute: '2-digit',
   })
 
-const makeConversationId = (studentId, driverId) => `${studentId}__${driverId}`
+const makeConversationId = (studentId, driverId) =>
+  `${normalizeId(studentId)}__${normalizeId(driverId)}`
 const makeConversationKey = (conversationId) => safeFirebaseKey(conversationId)
 
 const conversationsObjectToArray = (conversations) =>
@@ -88,7 +90,11 @@ export const useChatStore = create((set, get) => ({
   },
 
   ensureConversation: (payload) => {
-    const id = makeConversationId(payload.studentId, payload.driverId)
+    const studentId = normalizeId(payload.studentId)
+    const driverId = normalizeId(payload.driverId)
+    if (!studentId || !driverId) return null
+
+    const id = makeConversationId(studentId, driverId)
     const existing = get().conversations.find((c) => c.id === id)
 
     if (existing) {
@@ -99,9 +105,9 @@ export const useChatStore = create((set, get) => ({
 
     const nextConversation = {
       id,
-      studentId: payload.studentId,
+      studentId,
       studentName: payload.studentName,
-      driverId: payload.driverId,
+      driverId,
       driverName: payload.driverName,
       terminal: payload.terminal,
       route: payload.route,
@@ -128,8 +134,11 @@ export const useChatStore = create((set, get) => ({
   },
 
   setActiveConversation: (id, userId) => {
+    const normalizedId = String(id || '').trim()
+    if (!normalizedId) return
+
     const next = get().conversations.map((conv) => {
-      if (conv.id !== id || !userId) return conv
+      if (conv.id !== normalizedId || !userId) return conv
       return {
         ...conv,
         unreadBy: {
@@ -139,13 +148,13 @@ export const useChatStore = create((set, get) => ({
       }
     })
 
-    storage.set(STORAGE_KEYS.activeChat, id)
-    set({ conversations: next, activeId: id })
+    storage.set(STORAGE_KEYS.activeChat, normalizedId)
+    set({ conversations: next, activeId: normalizedId })
 
     if (db) {
-      const activeConversation = next.find((conversation) => conversation.id === id)
+      const activeConversation = next.find((conversation) => conversation.id === normalizedId)
       if (activeConversation) {
-        dbUpdate(ref(db, `conversations/${makeConversationKey(id)}`), {
+        dbUpdate(ref(db, `conversations/${makeConversationKey(normalizedId)}`), {
           unreadBy: activeConversation.unreadBy || {},
           updatedAt: Date.now(),
         })
@@ -157,37 +166,47 @@ export const useChatStore = create((set, get) => ({
     const trimmed = text.trim()
     if (!trimmed) return
 
+    const normalizedConversationId = String(conversationId || '').trim()
+    const normalizedSenderId = normalizeId(senderId)
+    const normalizedReceiverId = normalizeId(receiverId)
+    if (!normalizedConversationId || !normalizedSenderId || !normalizedReceiverId) return
+
+    const now = Date.now()
+    const nextMessage = {
+      id: now,
+      senderId: normalizedSenderId,
+      receiverId: normalizedReceiverId,
+      senderRole,
+      text: trimmed,
+      timestamp: getTimestamp(),
+      createdAt: now,
+    }
+
+    let hasConversation = false
+
     const next = get().conversations.map((conv) => {
-      if (conv.id !== conversationId) return conv
+      if (conv.id !== normalizedConversationId) return conv
+      hasConversation = true
       return {
         ...conv,
         unreadBy: {
           ...(conv.unreadBy || {}),
-          [receiverId]: (conv.unreadBy?.[receiverId] || 0) + 1,
+          [normalizedReceiverId]: (conv.unreadBy?.[normalizedReceiverId] || 0) + 1,
         },
-        messages: [
-          ...conv.messages,
-          {
-            id: Date.now(),
-            senderId,
-            receiverId,
-            senderRole,
-            text: trimmed,
-            timestamp: getTimestamp(),
-            createdAt: Date.now(),
-          },
-        ],
-        updatedAt: Date.now(),
+        messages: [...conv.messages, nextMessage],
+        updatedAt: now,
       }
     })
+
+    if (!hasConversation) return
 
     set({ conversations: next })
 
     if (db) {
-      const conversation = next.find((conv) => conv.id === conversationId)
+      const conversation = next.find((conv) => conv.id === normalizedConversationId)
       const message = conversation?.messages?.[conversation.messages.length - 1]
       if (conversation && message) {
-        const key = makeConversationKey(conversationId)
+        const key = makeConversationKey(normalizedConversationId)
         const messageRef = push(
           ref(db, `messages/${key}`),
         )

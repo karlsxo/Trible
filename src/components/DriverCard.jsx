@@ -23,7 +23,7 @@ const DriverCard = ({ data, onBook, onChat }) => {
           size="sm"
           className="w-full"
           onClick={() => onBook(data)}
-          disabled={data.seats <= 0}
+          disabled={data.seats <= 0 || data.status !== 'Available'}
         >
           <TicketCheck size={16} />
           Book Seat

@@ -23,7 +23,6 @@ export const BookingProvider = ({ children }) => {
     (state) => state.updateDriverTerminal,
   )
   const drivers = useDriverStore((state) => state.drivers)
-  const subscribeToDrivers = useDriverStore((state) => state.subscribeToDrivers)
   const initDriverSync = useDriverStore((state) => state.initSync)
 
   useEffect(() => {
@@ -35,14 +34,12 @@ export const BookingProvider = ({ children }) => {
   useEffect(() => {
     if (!authReady || !session) return undefined
     console.log('[BookingContext] 🚗 Initializing driver sync for', session.username)
-    const unsubscribe = initDriverSync()
-    const stop = subscribeToDrivers()
+    const stop = initDriverSync()
     return () => {
       console.log('[BookingContext] 🧹 Cleaning up driver subscriptions')
-      unsubscribe?.()
       stop?.()
     }
-  }, [authReady, session, initDriverSync, subscribeToDrivers])
+  }, [authReady, session, initDriverSync])
 
   const tricycles = useMemo(
     () =>

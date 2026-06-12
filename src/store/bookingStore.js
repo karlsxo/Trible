@@ -15,6 +15,7 @@ const bookingsRef = () => ref(db, 'bookings')
 const driverRef = (driverId) => ref(db, `drivers/${driverId}`)
 
 let bookingSyncReady = false
+const normalizeId = (value) => String(value || '').trim().toLowerCase()
 
 const asDriverCard = (driver) => {
   const seats = Number(driver.availableSeats) || 0
@@ -61,8 +62,13 @@ export const useBookingStore = create((set, get) => ({
   getTotalSeats: () => get().getTricycles().reduce((sum, item) => sum + item.seats, 0),
 
   bookSeat: async (data) => {
+    const driverUsername = normalizeId(data.driverUsername)
+    if (!driverUsername) {
+      return { ok: false, message: 'Driver not found.' }
+    }
+
     const driverStore = useDriverStore.getState()
-    const driver = driverStore.getDriverByUsername(data.driverUsername)
+    const driver = driverStore.getDriverByUsername(driverUsername)
 
     if (!driver) {
       console.warn('[Firebase] ⚠️ Driver not found for booking:', data.driverUsername)
@@ -75,29 +81,11 @@ export const useBookingStore = create((set, get) => ({
 
     let nextSeats = (Number(driver.availableSeats) || 0) - 1
 
-    if (db) {
-      const seatTransaction = await runTransaction(
-        ref(db, `drivers/${driver.id}/availableSeats`),
-        (currentSeats) => {
-          const seats = Number(currentSeats) || 0
-          if (seats <= 0) return
-          return seats - 1
-        },
-      )
-
-      if (!seatTransaction.committed) {
-        console.warn('[Firebase] ⚠️ Seat transaction failed for driver:', driver.username)
-        return { ok: false, message: 'Driver has no available seats.' }
-      }
-
-      nextSeats = Number(seatTransaction.snapshot.val()) || 0
-      dbUpdate(driverRef(driver.id), { updatedAt: Date.now() })
-    }
-
     const booking = {
       id: Date.now(),
       driver: driver.fullName,
       driverUsername: driver.username,
+      driverRecordId: driver.id,
       route: driver.destination || data.route || '',
       terminal: driver.terminal || '',
       student: data.studentName || 'Student Rider',
@@ -112,18 +100,56 @@ export const useBookingStore = create((set, get) => ({
       createdAt: Date.now(),
     }
 
-    const bookingRef = db ? push(bookingsRef()) : null
-    const bookingId = bookingRef?.key || String(booking.id)
-    const nextBooking = { ...booking, id: bookingId }
-    const nextBookings = [nextBooking, ...get().bookings]
-    set({ bookings: nextBookings })
+    let seatDecremented = false
+    try {
+      if (db) {
+        const seatTransaction = await runTransaction(
+          ref(db, `drivers/${driver.id}/availableSeats`),
+          (currentSeats) => {
+            const seats = Number(currentSeats) || 0
+            if (seats <= 0) return
+            return seats - 1
+          },
+        )
 
-    if (db && bookingRef) {
-      await dbSet(bookingRef, nextBooking)
-      console.log('[Firebase] ✅ Booking created:', bookingId, '- student:', data.studentName, '- driver:', driver.fullName)
+        if (!seatTransaction.committed) {
+          console.warn('[Firebase] ⚠️ Seat transaction failed for driver:', driver.username)
+          return { ok: false, message: 'Driver has no available seats.' }
+        }
+
+        seatDecremented = true
+        nextSeats = Number(seatTransaction.snapshot.val()) || 0
+        await dbUpdate(driverRef(driver.id), { updatedAt: Date.now() })
+      }
+
+      const bookingRef = db ? push(bookingsRef()) : null
+      const bookingId = bookingRef?.key || String(booking.id)
+      const nextBooking = { ...booking, id: bookingId }
+      const nextBookings = [nextBooking, ...get().bookings]
+      set({ bookings: nextBookings })
+
+      if (db && bookingRef) {
+        try {
+          await dbSet(bookingRef, nextBooking)
+          console.log('[Firebase] ✅ Booking created:', bookingId, '- student:', data.studentName, '- driver:', driver.fullName)
+        } catch (writeError) {
+          set({ bookings: get().bookings.filter((b) => b.id !== bookingId) })
+          if (seatDecremented) {
+            await runTransaction(
+              ref(db, `drivers/${driver.id}/availableSeats`),
+              (currentSeats) => (Number(currentSeats) || 0) + 1,
+            )
+            await dbUpdate(driverRef(driver.id), { updatedAt: Date.now() })
+          }
+          throw writeError
+        }
+      }
+
+      return { ok: true, seatsLeft: nextSeats }
+    } catch (error) {
+      console.error('[Firebase] ❌ Booking failed:', error)
+      return { ok: false, message: 'Unable to complete booking. Please try again.' }
     }
-
-    return { ok: true, seatsLeft: nextSeats }
   },
 
   acceptBooking: (id) => {
@@ -139,30 +165,31 @@ export const useBookingStore = create((set, get) => ({
   },
 
   cancelBooking: async (bookingId, studentUsername) => {
-    const booking = get().bookings.find((b) => b.id === bookingId)
-    if (!booking || booking.studentUsername !== studentUsername) {
+    const normalizedBookingId = String(bookingId || '')
+    const normalizedStudentUsername = normalizeId(studentUsername)
+    const booking = get().bookings.find((b) => String(b.id) === normalizedBookingId)
+    if (!booking || normalizeId(booking.studentUsername) !== normalizedStudentUsername) {
       console.warn('[Firebase] ⚠️ Booking not found or unauthorized:', bookingId)
       return { ok: false, message: 'Booking not found.' }
     }
 
     const driverStore = useDriverStore.getState()
-    const driver = driverStore.getDriverByUsername(booking.driverUsername)
-    if (driver) {
-      if (db) {
-        await runTransaction(
-          ref(db, `drivers/${driver.id}/availableSeats`),
-          (currentSeats) => (Number(currentSeats) || 0) + (booking.seatCount || 1),
-        )
-        dbUpdate(driverRef(driver.id), { updatedAt: Date.now() })
-        console.log('[Firebase] ✅ Booking cancelled:', bookingId, '- returned', booking.seatCount, 'seats to driver')
-      }
+    const driver = driverStore.getDriverByUsername(normalizeId(booking.driverUsername))
+    const driverId = booking.driverRecordId || driver?.id
+    if (driverId && db) {
+      await runTransaction(
+        ref(db, `drivers/${driverId}/availableSeats`),
+        (currentSeats) => (Number(currentSeats) || 0) + (booking.seatCount || 1),
+      )
+      await dbUpdate(driverRef(driverId), { updatedAt: Date.now() })
+      console.log('[Firebase] ✅ Booking cancelled:', bookingId, '- returned', booking.seatCount, 'seats to driver')
     }
 
-    const nextBookings = get().bookings.filter((b) => b.id !== bookingId)
+    const nextBookings = get().bookings.filter((b) => String(b.id) !== normalizedBookingId)
     set({ bookings: nextBookings })
 
     if (db) {
-      remove(ref(db, `bookings/${bookingId}`))
+      await remove(ref(db, `bookings/${normalizedBookingId}`))
     }
     return { ok: true }
   },
