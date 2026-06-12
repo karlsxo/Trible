@@ -19,7 +19,9 @@
     },
     "bookings": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      "$key": {
+        ".write": "auth != null"
+      }
     },
     "conversations": {
       ".read": "auth != null",
