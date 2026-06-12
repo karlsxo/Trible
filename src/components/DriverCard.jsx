@@ -1,8 +1,8 @@
-import { MessageSquareText, TicketCheck } from 'lucide-react'
+import { MessageSquareText, TicketCheck, X } from 'lucide-react'
 import Button from './Button'
 import StatusBadge from './StatusBadge'
 
-const DriverCard = ({ data, onBook, onChat }) => {
+const DriverCard = ({ data, onBook, onChat, onCancel, hasBooking }) => {
   return (
     <div className="glass flex h-full flex-col justify-between rounded-3xl p-5 shadow-soft">
       <div className="space-y-3">
@@ -19,15 +19,26 @@ const DriverCard = ({ data, onBook, onChat }) => {
         </div>
       </div>
       <div className="mt-5 flex flex-col gap-2">
-        <Button
-          size="sm"
-          className="w-full"
-          onClick={() => onBook(data)}
-          disabled={data.seats <= 0 || data.status !== 'Available'}
-        >
-          <TicketCheck size={16} />
-          Book Seat
-        </Button>
+        {hasBooking ? (
+          <Button
+            size="sm"
+            className="w-full bg-red-600 hover:bg-red-700"
+            onClick={() => onCancel(data)}
+          >
+            <X size={16} />
+            Cancel Booking
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={() => onBook(data)}
+            disabled={data.seats <= 0 || data.status !== 'Available'}
+          >
+            <TicketCheck size={16} />
+            Book Seat
+          </Button>
+        )}
         <Button
           size="sm"
           variant="ghost"

@@ -67,8 +67,11 @@ const StudentDashboard = () => {
     navigate(`/chat?conversation=${encodeURIComponent(conversationId)}`)
   }
 
-  const handleCancelBooking = async (bookingId) => {
-    const result = await cancelBooking(bookingId, session?.username)
+  const handleCancelBooking = async (driverData) => {
+    const booking = myBookings.find((b) => b.driverUsername === driverData.driverUsername)
+    if (!booking) return
+
+    const result = await cancelBooking(booking.id, session?.username)
     if (!result?.ok) {
       setToast({ title: 'Unable to cancel', message: result?.message || 'Try again.' })
       return
@@ -152,14 +155,19 @@ const StudentDashboard = () => {
             No Available Drivers
           </div>
         ) : (
-          tricycles.map((item) => (
-            <DriverCard
-              key={item.id}
-              data={item}
-              onBook={handleBook}
-              onChat={handleChat}
-            />
-          ))
+          tricycles.map((item) => {
+            const hasBooking = myBookings.some((b) => b.driverUsername === item.driverUsername)
+            return (
+              <DriverCard
+                key={item.id}
+                data={item}
+                onBook={handleBook}
+                onChat={handleChat}
+                onCancel={handleCancelBooking}
+                hasBooking={hasBooking}
+              />
+            )
+          })
         )}
       </div>
 
