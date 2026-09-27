@@ -138,26 +138,38 @@ export const useChatStore = create((set, get) => ({
     const normalizedUserId = normalizeId(userId)
     if (!normalizedId) return
 
-    const next = get().conversations.map((conv) => {
-      if (conv.id !== normalizedId || !normalizedUserId) return conv
-      return {
-        ...conv,
-        unreadBy: {
-          ...(conv.unreadBy || {}),
-          [normalizedUserId]: 0,
-        },
-      }
-    })
+    const current = get()
+    const activeConversation = current.conversations.find(
+      (conversation) => conversation.id === normalizedId,
+    )
+    const hasUnreadMessages = Boolean(
+      normalizedUserId && activeConversation?.unreadBy?.[normalizedUserId],
+    )
 
     storage.set(STORAGE_KEYS.activeChat, normalizedId)
+    if (!hasUnreadMessages && current.activeId === normalizedId) return
+
+    const next = hasUnreadMessages
+      ? current.conversations.map((conversation) =>
+          conversation.id === normalizedId
+            ? {
+                ...conversation,
+                unreadBy: {
+                  ...(conversation.unreadBy || {}),
+                  [normalizedUserId]: 0,
+                },
+              }
+            : conversation,
+        )
+      : current.conversations
+
     set({ conversations: next, activeId: normalizedId })
 
-    if (db) {
-      const activeConversation = next.find((conversation) => conversation.id === normalizedId)
-      if (activeConversation) {
+    if (db && hasUnreadMessages) {
+      const updatedConversation = next.find((conversation) => conversation.id === normalizedId)
+      if (updatedConversation) {
         dbUpdate(ref(db, `conversations/${makeConversationKey(normalizedId)}`), {
-          unreadBy: activeConversation.unreadBy || {},
-          updatedAt: Date.now(),
+          unreadBy: updatedConversation.unreadBy || {},
         })
       }
     }

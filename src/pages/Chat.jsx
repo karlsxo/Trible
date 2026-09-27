@@ -24,6 +24,7 @@ const Chat = () => {
   const { conversations, setActiveConversation, sendMessage } = useChat()
   const { tricycles } = useBooking()
   const messagesEndRef = useRef(null)
+  const handledRequestedConversationRef = useRef(null)
   const [selectedConversationId, setSelectedConversationId] = useState(null)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const driverStatusMap = useMemo(
@@ -55,20 +56,21 @@ const Chat = () => {
     scopedConversations.find((c) => c.id === effectiveConversationId) || null
 
   useEffect(() => {
-    if (!requestedConversationId || !sessionUsername) return
+    if (!requestedConversationId || !sessionUsername) {
+      handledRequestedConversationRef.current = null
+      return
+    }
+
+    const requestKey = `${requestedConversationId}:${normalizeId(sessionUsername)}`
+    if (handledRequestedConversationRef.current === requestKey) return
+
     const requestedInScope = scopedConversations.find((c) => c.id === requestedConversationId)
     if (!requestedInScope) return
-    let cancelled = false
-    queueMicrotask(() => {
-      if (!cancelled) {
-        setSelectedConversationId(requestedConversationId)
-        setActiveConversation(requestedConversationId, sessionUsername)
-        setMobileChatOpen(true)
-      }
-    })
-    return () => {
-      cancelled = true
-    }
+
+    handledRequestedConversationRef.current = requestKey
+    setSelectedConversationId(requestedConversationId)
+    setActiveConversation(requestedConversationId, sessionUsername)
+    setMobileChatOpen(true)
   }, [requestedConversationId, sessionUsername, scopedConversations, setActiveConversation])
 
   useEffect(() => {
